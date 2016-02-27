@@ -25,7 +25,7 @@ public:
       switch(token.type)
       {
       case commentType:
-        lastComment = token.val;
+        lastComment = token.value;
         break;
       case preprocessorType:
         break;
@@ -34,7 +34,7 @@ public:
           return false;
         break;
       case operatorType:
-        if(token.val== "}")
+        if(token.value== "}")
           return error = "Unexpected }", false;
         break;
       }
@@ -59,7 +59,7 @@ private:
 
   struct Token
   {
-    String val;
+    String value;
     TokenType type;
   };
 
@@ -103,69 +103,69 @@ private:
       if(*p == '+')
       {
         if(p[1] == '+')
-          return p += 2, token.val = "++", true;
+          return p += 2, token.value = "++", true;
         if(p[1] == '=')
-          return p += 2, token.val = "+=", true;
+          return p += 2, token.value = "+=", true;
       }
       else if(*p == '-')
       {
         if(p[1] == '-')
-          return p += 2, token.val = "--", true;
+          return p += 2, token.value = "--", true;
         if(p[1] == '=')
-          return p += 2, token.val = "-=", true;
+          return p += 2, token.value = "-=", true;
         if(p[1] == '>')
         {
           if(p[2] == '*')
-            return p += 3, token.val = "->*", true;
-          return p += 2, token.val = "->", true;
+            return p += 3, token.value = "->*", true;
+          return p += 2, token.value = "->", true;
         }
       }
-      return token.val = String(p++, 1), true;
+      return token.value = String(p++, 1), true;
     case '/':
       if(p[1] == '/' || p[1] == '*')
         return readCommentToken(token);
       if(p[1] == '=')
-        return p += 2, token.type = operatorType, token.val = "/=", true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return p += 2, token.type = operatorType, token.value = "/=", true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '=':
     case '!':
     case '^':
     case '*':
     case '%':
       if(p[1] == '=')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '>':
       if(p[1] == '>' && p[2] == '=')
-        return token.type = operatorType, token.val = String(p, 3), p += 3, true;
+        return token.type = operatorType, token.value = String(p, 3), p += 3, true;
       if(p[1] == '=' || p[1] == '>')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '<':
       if(p[1] == '<' && p[2] == '=')
-        return token.type = operatorType, token.val = String(p, 3), p += 3, true;
+        return token.type = operatorType, token.value = String(p, 3), p += 3, true;
       if(p[1] == '=' || p[1] == '<')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '&':
       if(p[1] == '&' || p[1] == '=')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '|':
       if(p[1] == '|' || p[1] == '=')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '.':
       if(p[1] == '*')
-        return token.type = operatorType, token.val = String(p, 2), p += 2, true;
-      return token.type = operatorType, token.val = String(p++, 1), true;
+        return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     case '#':
       {
         const char_t* start = p;
         p = String::findOneOf(p, "\r\n");
         if(!p)
           p = start + String::length(start);
-        return token.val = String(p, p - start), token.type = preprocessorType, true;
+        return token.value = String(p, p - start), token.type = preprocessorType, true;
       }
     case '\'':
       {
@@ -190,7 +190,7 @@ private:
             ++p;
           }
       endloop3:;
-        return token.val = String(start, p - start), true;
+        return token.value = String(start, p - start), true;
       }
     case '"':
       {
@@ -215,17 +215,17 @@ private:
             ++p;
           }
       endloop4:;
-        return token.val = String(start, p - start), true;
+        return token.value = String(start, p - start), true;
       }
       break;
     case '\0':
-      return token.type = eofType, token.val.clear(), true;
+      return token.type = eofType, token.value.clear(), true;
     default:
       if(String::isDigit(*p))
         return readNumberToken(token);
       if(String::isAlpha(*p) || *p == '_')
         return readIdentifierToken(token);
-      return token.type = operatorType, token.val = String(p++, 1), true;
+      return token.type = operatorType, token.value = String(p++, 1), true;
     }
   }
 
@@ -258,11 +258,11 @@ private:
         while(String::isDigit(*p))
           ++p;
       }
-      token.val = String(start, p - start);
+      token.value = String(start, p - start);
       token.type = realType;
       return true;
     }
-    token.val = String(start, p - start);
+    token.value = String(start, p - start);
     token.type = integerType;
     return true;
   }
@@ -274,7 +274,7 @@ private:
     ++p;
     while(String::isAlpha(*p) || *p == '_' || String::isDigit(*p))
       ++p;
-    token.val = String(start, p - start);
+    token.value = String(start, p - start);
     token.type = identifierType;
     return true;
   }
@@ -288,7 +288,7 @@ private:
       p = String::findOneOf(p, "\r\n");
       if(!p)
         p = start + String::length(start);
-      token.val = String(p, p - start);
+      token.value = String(p, p - start);
       token.type = commentType;
       return true;
     }
@@ -326,7 +326,7 @@ private:
         }
       }
     endloop2:;
-      token.val = String(p, p - start);
+      token.value = String(p, p - start);
       token.type = commentType;
       return true;
     }
@@ -363,13 +363,13 @@ private:
       switch(token.type)
       {
       case operatorType:
-        if(token.val == "{")
+        if(token.value == "{")
         {
           if(!readBody())
             return false;
           break;
         }
-        if(token.val == "}")
+        if(token.value == "}")
           return true;
         break;
       case eofType:
@@ -382,7 +382,7 @@ private:
 
   bool_t readIdentifier(Token& token)
   {
-    if(token.val == "class")
+    if(token.value == "class")
     {
       Token token;
       if(!readTokenSkipComments(token))
@@ -391,15 +391,15 @@ private:
       if(token.type != identifierType)
         return error = "Expected identifer", false;
 
-      String className = token.val;
+      String className = token.value;
 
       if(!readTokenSkipComments(token))
         return false;
 
-      if(token.val == "{")
+      if(token.value == "{")
         return readBody();
 
-      if(token.val != ":")
+      if(token.value != ":")
         return error = "Expected :", false;
 
       if(!readTokenSkipComments(token))
@@ -409,37 +409,37 @@ private:
 
       for(;;)
       {
-        if(token.val == "public" || token.val == "protected" ||token.val == "private")
+        if(token.value == "public" || token.value == "protected" ||token.value == "private")
           if(!readTokenSkipComments(token))
             return false;
 
         if(token.type != identifierType)
           return error = "Expected identifer", false;
 
-        parents.append(token.val);
+        parents.append(token.value);
 
         if(!readTokenSkipComments(token))
             return false;
 
-        if(token.val == ",")
+        if(token.value == ",")
           continue;
         break;
       }
 
-      if(token.val != "{")
+      if(token.value != "{")
           return error = "Expected {", false;
 
       if(!readClassBody())
         return false;
       return true;
     }
-    else if(token.val == "template")
+    else if(token.value == "template")
     {
     }
-    else if(token.val == "enum")
+    else if(token.value == "enum")
     {
     }
-    else if(token.val == "namespace")
+    else if(token.value == "namespace")
     {
     }
     return true;

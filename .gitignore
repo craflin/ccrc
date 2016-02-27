@@ -1,0 +1,7 @@
+Build/
+*.sdf
+*.sln
+*.vcxproj*
+*.txt
+*.opensdf
+*.suo

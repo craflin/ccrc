@@ -7,9 +7,7 @@ bool_t Parser::parse(const String& data)
 {
   p = data;
 
-  lastToken.type = eofType;
   token.type = eofType;
-  readNextToken(nextToken);
   readToken();
 
   if(!parseNamespaceBody())
@@ -28,8 +26,7 @@ void_t Parser::getError(String& file, uint_t& line, String& message)
 bool_t Parser::readToken()
 {
   lastToken = token;
-  token = nextToken;
-  return readNextToken(nextToken);
+  return readNextToken(token);
 }
 
 bool_t Parser::readNextToken(Token& token)

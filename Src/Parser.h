@@ -48,7 +48,6 @@ private:
   String error;
   Token lastToken;
   Token token;
-  Token nextToken; // todo: do i really need this?
 
   Namespace rootNamespace;
   Namespace* currentNamespace;

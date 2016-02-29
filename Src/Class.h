@@ -7,6 +7,19 @@
 
 class TypeName;
 
+class TemplateParameter
+{
+public:
+  TemplateParameter() : defaultType(0) {}
+
+  void_t setName(const String& name) {this->name = name;}
+  void_t setDefaultType(TypeName* defaultType) {this->defaultType = defaultType;}
+
+private:
+  String name;
+  TypeName* defaultType;
+};
+
 class Class : public Namespace
 {
 public:
@@ -15,7 +28,10 @@ public:
 
   virtual String getFullName() const;
 
+  void_t addTemplateParam(TemplateParameter& param) {templateParameters.append(&param);}
+
 private:
   String comment;
   List<TypeName*> baseTypes;
+  List<TemplateParameter*> templateParameters;
 };

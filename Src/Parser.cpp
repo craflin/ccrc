@@ -447,7 +447,7 @@ bool_t Parser::parseBody()
   }
 }
 
-Class* Parser::parseClass()
+bool_t Parser::parseClass()
 {
   ASSERT(token.value == "class" || token.value == "struct");
 
@@ -456,78 +456,146 @@ Class* Parser::parseClass()
     comment = lastToken.value;
 
   if(!readTokenSkipComments())
-    return 0;
+    return false;
 
   if(token.value == "{") // anonymous class
   {
-    Class& _class = classPool.append();
-    _class.setParent(*currentNamespace);
-
     if(!readToken())
-      return 0;
+      return false;
 
     if(!parseBody())
-      return 0;
+      return false;
 
     if(token.value != "}")
-      return error = "Expected }", 0;
+      return error = "Expected }", false;
 
     if(!readToken())
-      return 0;
+      return false;
 
-    return &_class;
+    return true;
   }
 
   if(token.type != identifierType)
-    return error = "Expected identifer", 0;
+    return error = "Expected identifer", false;
 
   Class& _class = classPool.append();
   _class.setParent(*currentNamespace);
   _class.setName(token.value);
   _class.setComment(comment);
+  currentNamespace->addClass(_class);
 
   if(!readTokenSkipComments())
-    return 0;
+    return false;
 
   if(token.value == ":")
   {
     if(!readTokenSkipComments())
-      return 0;
+      return false;
 
     do
     {
       if(token.value == "public" || token.value == "protected" ||token.value == "private")
         if(!readTokenSkipComments())
-          return 0;
+          return false;
 
       TypeName* typeName = parseTypeName();
       if(!typeName)
-        return 0;
+        return false;
       _class.addBaseType(*typeName);
 
       if(!readTokenSkipComments())
-          return 0;
+          return false;
     } while(token.value == ",");
   }
 
   if(token.value == "{")
   {
     if(!readToken())
-      return 0;
+      return false;
 
     currentNamespace = &_class;
     if(!parseNamespaceBody())
-      return 0;
+      return false;
     currentNamespace = _class.getParent();
 
     if(token.value != "}")
-      return error = "Expected }", 0;
+      return error = "Expected }", false;
 
     if(!readToken())
-      return 0;
+      return false;
   }
 
-  return &_class;
+  return true;
+}
+
+bool_t Parser::parseTemplate()
+{
+  ASSERT(token.value == "template");
+
+  String comment;
+  if(lastToken.type == commentType)
+    comment = lastToken.value;
+
+  if(!readTokenSkipComments())
+    return false;
+
+  if(token.value != "<")
+    return true;
+
+  if(!readTokenSkipComments())
+    return false;
+
+  if(token.value == ">")
+    return true;
+
+  List<TemplateParameter*> templateParams;
+
+  do
+  {
+    if(token.value != "typename" && token.value != "class")
+      return error = "Expected typename or class", false;
+
+    if(!readTokenSkipComments())
+      return false;
+
+    if(token.type != identifierType)
+      return error = "Expected identifier", false;
+
+    TemplateParameter& param = templateParameterPool.append();
+    param.setName(token.value);
+
+    if(!readTokenSkipComments())
+      return false;
+
+    if(token.value == "=")
+    {
+      if(!readTokenSkipComments())
+        return false;
+
+      TypeName* type = parseTypeName();
+      if(!type)
+        return false;
+      param.setDefaultType(type);
+    }
+
+    templateParams.append(&param);
+
+  } while(token.value == ">");
+
+  if(!readTokenSkipComments())
+    return false;
+
+  if(token.value != "class" && token.value != "struct")
+    return true;
+
+  if(!parseClass())
+    return false;
+
+  Class* _class = currentNamespace->getLastClass();
+  for(List<TemplateParameter*>::Iterator i = templateParams.begin(), end = templateParams.end(); i != end; ++i)
+    _class->addTemplateParam(**i);
+
+  return true;
 }
 
 TypeName* Parser::parseTypeName()
@@ -582,15 +650,15 @@ bool_t Parser::parseNamespaceBody()
     case identifierType:
       if(token.value == "class" || token.value == "struct")
       {
-        Class* _class = parseClass();
-        if(!_class)
+        if(!parseClass())
           return false;
-        if(!_class->getName().isEmpty())
-          currentNamespace->addClass(*_class);
         continue;
       }
       else if(token.value == "template")
       {
+        if(!parseTemplate())
+          return false;
+        continue;
       }
       else if(token.value == "enum")
       {

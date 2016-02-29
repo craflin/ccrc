@@ -22,6 +22,7 @@ public:
 
   void_t addClass(Class& _class);
   void_t getClasses(List<Class*>& classes);
+  Class* getLastClass() {return classes.back();}
 
 private:
   String name;

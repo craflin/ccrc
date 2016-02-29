@@ -55,6 +55,7 @@ private:
 
   Pool<TypeName> typeNamePool;
   Pool<Class> classPool;
+  Pool<TemplateParameter> templateParameterPool;
 
 private:
   bool_t readToken();
@@ -71,7 +72,8 @@ private:
 
 private:
   bool_t parseBody();
-  Class* parseClass();
+  bool_t parseClass();
+  bool_t parseTemplate();
   TypeName* parseTypeName();
   bool_t parseNamespaceBody();
 

@@ -577,7 +577,7 @@ bool_t Parser::parseTemplate()
 
     templateParams.append(&param);
 
-  } while(token.value == ">");
+  } while(token.value != ">");
 
   if(!readTokenSkipComments())
     return false;

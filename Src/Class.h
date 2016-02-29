@@ -13,6 +13,7 @@ public:
   TemplateParameter() : defaultType(0) {}
 
   void_t setName(const String& name) {this->name = name;}
+  const String& getName() const {return name;}
   void_t setDefaultType(TypeName* defaultType) {this->defaultType = defaultType;}
 
 private:

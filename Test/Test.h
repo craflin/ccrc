@@ -18,6 +18,8 @@ template <class A> class MyTemplateObject
 {
 };
 
+#include <list>
+
 class B
 {
   int a;

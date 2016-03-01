@@ -10,7 +10,7 @@ bool_t Parser::parse(const String& data)
   token.type = eofType;
   readToken();
 
-  if(!parseNamespaceBody())
+  if(!parseNamespaceBody(true))
     return false;
 
   return true;
@@ -290,10 +290,12 @@ bool_t Parser::readCommentToken(Token& token)
           p += 2;
           goto endloop2;
         }
+        else
+          ++p;
       }
     }
   endloop2:;
-    token.value = String(p, p - start);
+    token.value = String(start, p - start);
     token.type = commentType;
     return true;
   }
@@ -444,6 +446,36 @@ bool_t Parser::parseBody()
   }
 }
 
+bool_t Parser::parseParenthesize()
+{
+  for(;;)
+  {
+    switch(token.type)
+    {
+    case operatorType:
+      if(token.value == "(")
+      {
+        if(!readToken())
+          return false;
+        if(!parseParenthesize())
+          return false;
+        if(token.value != ")")
+          return error = "Expected )", false;
+        break;
+      }
+      if(token.value == ")")
+        return true;
+      break;
+    case eofType:
+      return error = "Unexpected end of file", false;
+    default:
+      break;
+    }
+    if(!readToken())
+      return false;
+  }
+}
+
 bool_t Parser::parseClass()
 {
   ASSERT(token.value == "class" || token.value == "struct");
@@ -475,22 +507,20 @@ bool_t Parser::parseClass()
   if(token.type != identifierType)
     return error = "Expected identifer", false;
 
-  Class& _class = classPool.append();
-  _class.setParent(*currentNamespace);
-  _class.setName(token.value);
-  _class.setComment(comment);
-  currentNamespace->addClass(_class);
+  String className = token.value;
 
   if(!readTokenSkipComments())
     return false;
 
+  List<TypeName*> baseTypes;
+
   if(token.value == ":")
   {
-    if(!readTokenSkipComments())
-      return false;
-
     do
     {
+      if(!readTokenSkipComments())
+        return false;
+
       if(token.value == "public" || token.value == "protected" ||token.value == "private")
         if(!readTokenSkipComments())
           return false;
@@ -498,10 +528,7 @@ bool_t Parser::parseClass()
       TypeName* typeName = parseTypeName();
       if(!typeName)
         return false;
-      _class.addBaseType(*typeName);
-
-      if(!readTokenSkipComments())
-          return false;
+      baseTypes.append(typeName);
     } while(token.value == ",");
   }
 
@@ -509,6 +536,15 @@ bool_t Parser::parseClass()
   {
     if(!readToken())
       return false;
+
+    Class& _class = classPool.append();
+    _class.setParent(*currentNamespace);
+    _class.setName(className);
+    _class.setComment(comment);
+    for(List<TypeName*>::Iterator i = baseTypes.begin(), end = baseTypes.end(); i != end; ++i)
+      _class.addBaseType(**i);
+    currentNamespace->addClass(_class);
+
 
     currentNamespace = &_class;
     if(!parseNamespaceBody())
@@ -547,7 +583,7 @@ bool_t Parser::parseTemplate()
 
   List<TemplateParameter*> templateParams;
 
-  do
+  for(;;)
   {
     if(token.value != "typename" && token.value != "class")
       return error = "Expected typename or class", false;
@@ -577,10 +613,24 @@ bool_t Parser::parseTemplate()
 
     templateParams.append(&param);
 
-  } while(token.value != ">");
+    if(token.value == ",")
+    {
+      if(!readTokenSkipComments())
+        return false;
+      continue;
+    }
+    break;
+  }
 
-  if(!readTokenSkipComments())
-    return false;
+  if(token.value == ">>")
+      token.value = ">";
+  else
+  {
+    if(token.value != ">")
+      return error = "Expected >", false;
+    if(!readTokenSkipComments())
+      return false;
+  }
 
   if(token.value != "class" && token.value != "struct")
     return true;
@@ -603,9 +653,12 @@ TypeName* Parser::parseTypeName()
   TypeName& typeName = typeNamePool.append();
   typeName.setName(token.value);
 
+  if(!readToken())
+    return false;
+
   if(token.value == "<")
   {
-    do
+    for(;;)
     {
       if(!readTokenSkipComments())
         return false;
@@ -614,7 +667,11 @@ TypeName* Parser::parseTypeName()
       if(!templateParam)
         return 0;
       typeName.addTemplateParam(templateParam);
-    } while(token.value == ",");
+
+      if(token.value == ",")
+        continue;
+      break;
+    }
 
     if(token.value == ">>")
       token.value = ">";
@@ -629,7 +686,7 @@ TypeName* Parser::parseTypeName()
   return &typeName;
 }
 
-bool_t Parser::parseNamespaceBody()
+bool_t Parser::parseNamespaceBody(bool_t allowEof)
 {
   for(;;)
   {
@@ -668,8 +725,42 @@ bool_t Parser::parseNamespaceBody()
       }
       break;
     case operatorType:
+      if(token.value == "(")
+      {
+        if(!readToken())
+          return false;
+        if(!parseParenthesize())
+          return false;
+        if(token.value != ")")
+          return error = "Expected )", false;
+        if(!readToken())
+          return false;
+        continue;
+      }
+      if(token.value == "{")
+      {
+        if(!readToken())
+          return false;
+        if(!parseBody())
+          return false;
+        if(token.value != "}")
+          return error = "Expected }", false;
+        if(!readToken())
+          return false;
+        continue;
+      }
+      
       if(token.value == "}")
+      {
+        if(allowEof)
+          return error = "Unexpected }", false;
         return true;
+      }
+      break;
+    case eofType:
+      if(allowEof)
+        return true;
+      return error = "Unexpected end of file", false;
     }
     if(!readToken())
       return false;

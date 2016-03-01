@@ -71,9 +71,10 @@ private:
 
 private:
   bool_t parseBody();
+  bool_t parseParenthesize();
   bool_t parseClass();
   bool_t parseTemplate();
   TypeName* parseTypeName();
-  bool_t parseNamespaceBody();
+  bool_t parseNamespaceBody(bool_t allowEof = false);
 
 };

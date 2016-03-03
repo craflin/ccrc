@@ -24,8 +24,11 @@ public:
   void_t getClasses(List<Class*>& classes);
   Class* getLastClass() {return classes.back();}
 
+  void_t addNamespace(Namespace& _namespace) {namespaces.append(_namespace.getName(), &_namespace);}
+
 private:
   String name;
   Namespace* parent;
   HashMap<String, Class*> classes;
+  HashMap<String, Namespace*> namespaces;
 };

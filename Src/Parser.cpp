@@ -88,6 +88,10 @@ endloop:;
     if(p[1] == '=')
       return p += 2, token.type = operatorType, token.value = "/=", true;
     return token.type = operatorType, token.value = String(p++, 1), true;
+  case ':':
+    if(p[1] == ':')
+      return token.type = operatorType, token.value = String(p, 2), p += 2, true;
+    return token.type = operatorType, token.value = String(p++, 1), true;
   case '=':
   case '!':
   case '^':
@@ -476,8 +480,9 @@ bool_t Parser::parseParenthesize()
   }
 }
 
-bool_t Parser::parseClass()
+bool_t Parser::parseClass(Class*& _class)
 {
+  _class = 0;
   ASSERT(token.value == "class" || token.value == "struct");
 
   String comment;
@@ -537,19 +542,18 @@ bool_t Parser::parseClass()
     if(!readToken())
       return false;
 
-    Class& _class = classPool.append();
-    _class.setParent(*currentNamespace);
-    _class.setName(className);
-    _class.setComment(comment);
+    _class = &classPool.append();
+    _class->setParent(*currentNamespace);
+    _class->setName(className);
+    _class->setComment(comment);
     for(List<TypeName*>::Iterator i = baseTypes.begin(), end = baseTypes.end(); i != end; ++i)
-      _class.addBaseType(**i);
-    currentNamespace->addClass(_class);
+      _class->addBaseType(**i);
+    currentNamespace->addClass(*_class);
 
-
-    currentNamespace = &_class;
+    currentNamespace = _class;
     if(!parseNamespaceBody())
       return false;
-    currentNamespace = _class.getParent();
+    currentNamespace = _class->getParent();
 
     if(token.value != "}")
       return error = "Expected }", false;
@@ -585,33 +589,63 @@ bool_t Parser::parseTemplate()
 
   for(;;)
   {
-    if(token.value != "typename" && token.value != "class")
-      return error = "Expected typename or class", false;
-
-    if(!readTokenSkipComments())
-      return false;
-
-    if(token.type != identifierType)
-      return error = "Expected identifier", false;
-
-    TemplateParameter& param = templateParameterPool.append();
-    param.setName(token.value);
-
-    if(!readTokenSkipComments())
-      return false;
-
-    if(token.value == "=")
+    if(token.value == "typename" || token.value == "class")
     {
       if(!readTokenSkipComments())
         return false;
 
+      if(token.type != identifierType)
+        return error = "Expected identifier", false;
+
+      TemplateParameter& param = templateParameterPool.append();
+      param.setName(token.value);
+
+      if(!readTokenSkipComments())
+        return false;
+
+      if(token.value == "=")
+      {
+        if(!readTokenSkipComments())
+          return false;
+
+        TypeName* type = parseTypeName();
+        if(!type)
+          return false;
+        param.setDefaultType(type);
+      }
+
+      templateParams.append(&param);
+    }
+    else
+    {
       TypeName* type = parseTypeName();
       if(!type)
         return false;
-      param.setDefaultType(type);
-    }
 
-    templateParams.append(&param);
+      if(token.value == ">" || token.value == ">>" || token.value == ",")
+        return true; 
+
+      if(token.type != identifierType)
+        return error = "Expected identifier", false;
+
+      TemplateParameter& param = templateParameterPool.append();
+      param.setType(*type);
+      param.setName(token.value);
+
+      if(!readTokenSkipComments())
+        return false;
+
+      if(token.value == "=")
+      {
+        if(!readTokenSkipComments())
+          return false;
+
+        int k =32;
+        //param.setDefaultValue(??);
+      }
+
+
+    }
 
     if(token.value == ",")
     {
@@ -635,12 +669,51 @@ bool_t Parser::parseTemplate()
   if(token.value != "class" && token.value != "struct")
     return true;
 
-  if(!parseClass())
+  Class* _class;
+  if(!parseClass(_class))
     return false;
 
-  Class* _class = currentNamespace->getLastClass();
-  for(List<TemplateParameter*>::Iterator i = templateParams.begin(), end = templateParams.end(); i != end; ++i)
-    _class->addTemplateParam(**i);
+  if(_class)
+    for(List<TemplateParameter*>::Iterator i = templateParams.begin(), end = templateParams.end(); i != end; ++i)
+      _class->addTemplateParam(**i);
+
+  return true;
+}
+
+bool_t Parser::parseNamespace()
+{
+  ASSERT(token.value == "namespace");
+
+  if(!readTokenSkipComments())
+    return false;
+
+  if(token.type != identifierType)
+    return error = "Expected identifier", false;
+
+  Namespace& _namespace = namespacePool.append();
+  _namespace.setName(token.value);
+  _namespace.setParent(*currentNamespace);
+  currentNamespace->addNamespace(_namespace);
+
+  if(!readTokenSkipComments())
+    return false;
+
+  if(token.value != "{")
+    return error = "Expected {", false;
+
+  if(!readTokenSkipComments())
+    return false;
+
+  currentNamespace = &_namespace;
+  if(!parseNamespaceBody())
+    return false;
+  currentNamespace = currentNamespace->getParent();
+
+  if(token.value != "}")
+    return error = "Expected }", false;
+
+  if(!readTokenSkipComments())
+    return false;
 
   return true;
 }
@@ -650,39 +723,157 @@ TypeName* Parser::parseTypeName()
   if(token.type != identifierType)
     return error = "Expected identifer", 0;
 
+  int_t flags = 0;
+  for(;;)
+  {
+    if(token.value == "const")
+    {
+      flags |= TypeName::constFlag;
+      goto next;
+    }
+    if(token.value == "volatile")
+    {
+      flags |= TypeName::volatileFlag;
+      goto next;
+    }
+    if(token.value == "unsigned")
+    {
+      flags |= TypeName::unsignedFlag;
+      goto next;
+    }
+    if(token.value == "signed")
+    {
+      flags |= TypeName::signedFlag;
+      goto next;
+    }
+    if(token.value == "long")
+    {
+      flags |= flags & TypeName::longFlag ? TypeName::longLongFlag : TypeName::longFlag;
+      goto next;
+    }
+    if(token.value == "short")
+    {
+      flags |= TypeName::shortFlag;
+      goto next;
+    }
+    break;
+  next:;
+    if(!readTokenSkipComments())
+      return false;
+  };
+
+  if(token.type != identifierType)
+    return error = "Expected identifer", 0;
+
   TypeName& typeName = typeNamePool.append();
   typeName.setName(token.value);
 
-  if(!readToken())
-    return false;
+  for(;;)
+  {
+    if(!readTokenSkipComments())
+      return false;
 
-  if(token.value == "<")
+    if(token.value == "<")
+    {
+      for(;;)
+      {
+        if(!readTokenSkipComments())
+          return false;
+
+        if(token.value == "typename" || token.value == "class" )
+          if(!readTokenSkipComments())
+            return false;
+
+        TypeName* templateParam = parseTypeName();
+        if(!templateParam)
+          return 0;
+        typeName.addTemplateParam(templateParam);
+
+        if(token.value == ",")
+          continue;
+        break;
+      }
+
+      if(token.value == ">>")
+        token.value = ">";
+      else
+      {
+        if(token.value != ">")
+          return error = "Expected >", 0;
+
+        if(!readTokenSkipComments())
+          return false;
+      }
+    }
+
+    if(token.value != "::")
+      break;
+
+    if(!readTokenSkipComments())
+      return false;
+
+    if(token.type != identifierType)
+      return error = "Expected identifer", 0;
+
+    TypeName& namespaceTypeName = typeNamePool.append();
+    namespaceTypeName.setName(typeName.getName());
+    namespaceTypeName.swapTemplateParams(typeName);
+    typeName.addNamespaceName(namespaceTypeName);
+    typeName.setName(token.value);
+  }
+
+  for(;;)
   {
     for(;;)
     {
-      if(!readTokenSkipComments())
-        return false;
-
-      TypeName* templateParam = parseTypeName();
-      if(!templateParam)
-        return 0;
-      typeName.addTemplateParam(templateParam);
-
-      if(token.value == ",")
-        continue;
+      if(token.value == "const")
+      {
+        flags |= TypeName::constFlag;
+        goto next2;
+      }
+      if(token.value == "volatile")
+      {
+        flags |= TypeName::volatileFlag;
+        goto next2;
+      }
+      if(token.value == "unsigned")
+      {
+        flags |= TypeName::unsignedFlag;
+        goto next2;
+      }
+      if(token.value == "signed")
+      {
+        flags |= TypeName::signedFlag;
+        goto next2;
+      }
+      if(token.value == "long")
+      {
+        flags |= flags & TypeName::longFlag ? TypeName::longLongFlag : TypeName::longFlag;
+        goto next2;
+      }
+      if(token.value == "short")
+      {
+        flags |= TypeName::shortFlag;
+        goto next2;
+      }
       break;
-    }
-
-    if(token.value == ">>")
-      token.value = ">";
-    else
+    next2:;
+      if(!readTokenSkipComments())
+          return false;
+    };
+  
+    if(token.value == "*")
     {
-      if(token.value != ">")
-        return error = "Expected >", 0;
-
-      readTokenSkipComments();
+      typeName.addPointeeFlags(flags);
+      flags = 0;
     }
+    else if(token.value == "&")
+      flags |= TypeName::referenceFlag;
+    else
+      break;
   }
+
+  typeName.setFlags(flags);
   return &typeName;
 }
 
@@ -704,7 +895,8 @@ bool_t Parser::parseNamespaceBody(bool_t allowEof)
     case identifierType:
       if(token.value == "class" || token.value == "struct")
       {
-        if(!parseClass())
+        Class* _class;
+        if(!parseClass(_class))
           return false;
         continue;
       }
@@ -719,6 +911,9 @@ bool_t Parser::parseNamespaceBody(bool_t allowEof)
       }
       else if(token.value == "namespace")
       {
+        if(!parseNamespace())
+          return false;
+        continue;
       }
       else if(token.value == "typedef")
       {

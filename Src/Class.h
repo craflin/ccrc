@@ -14,9 +14,12 @@ public:
 
   void_t setName(const String& name) {this->name = name;}
   const String& getName() const {return name;}
+  void_t setType(TypeName& type) {this->type = &type;}
+
   void_t setDefaultType(TypeName* defaultType) {this->defaultType = defaultType;}
 
 private:
+  TypeName* type;
   String name;
   TypeName* defaultType;
 };

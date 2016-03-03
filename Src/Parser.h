@@ -55,6 +55,7 @@ private:
   Pool<TypeName> typeNamePool;
   Pool<Class> classPool;
   Pool<TemplateParameter> templateParameterPool;
+  Pool<Namespace> namespacePool;
 
 private:
   bool_t readToken();
@@ -72,8 +73,9 @@ private:
 private:
   bool_t parseBody();
   bool_t parseParenthesize();
-  bool_t parseClass();
+  bool_t parseClass(Class*& _class);
   bool_t parseTemplate();
+  bool_t parseNamespace();
   TypeName* parseTypeName();
   bool_t parseNamespaceBody(bool_t allowEof = false);
 

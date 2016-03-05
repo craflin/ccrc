@@ -93,13 +93,13 @@ int_t main(int_t argc, char_t* argv[])
   }
 
   // generate output
-  List<Class*> classes;
-  parser.getClasses(classes);
-  for(List<Class*>::Iterator i = classes.begin(), end = classes.end(); i != end; ++i)
-  {
-    Class* _class = *i;
-    Console::printf("%s\n", (const char_t*)_class->getFullName());
-  }
+  //List<Class*> classes;
+  //parser.getClasses(classes);
+  //for(List<Class*>::Iterator i = classes.begin(), end = classes.end(); i != end; ++i)
+  //{
+  //  Class* _class = *i;
+  //  Console::printf("%s\n", (const char_t*)_class->getFullName());
+  //}
 
   return 0;
 }

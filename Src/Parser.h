@@ -11,13 +11,13 @@
 class Parser
 {
 public:
-  Parser() : currentLine(1), currentNamespace(&rootNamespace) {}
+  Parser() : currentLine(1) {}
 
   bool_t parse(const String& data);
 
   void_t getError(String& file, uint_t& line, String& message);
 
-  void_t getClasses(List<Class*>& classes) {rootNamespace.getClasses(classes);}
+  //void_t getClasses(List<Class*>& classes) {rootNamespace.getClasses(classes);}
 
 private:
   enum TokenType
@@ -46,37 +46,19 @@ private:
   uint_t currentLine;
   String currentFile;
   String error;
-  Token lastToken;
   Token token;
-
-  Namespace rootNamespace;
-  Namespace* currentNamespace;
-
-  Pool<TypeName> typeNamePool;
-  Pool<Class> classPool;
-  Pool<TemplateParameter> templateParameterPool;
-  Pool<Namespace> namespacePool;
+  String lastComment;
 
 private:
-  bool_t readToken();
-  bool_t readNextToken(Token& token);
-  bool_t readNumberToken(Token& token);
-  bool_t readIdentifierToken(Token& token);
-  bool_t readCommentToken(Token& token);
-  bool_t readTokenSkipComments();
+  void_t readToken();
+  void_t readTokenRaw();
+  void_t readNumberToken();
+  void_t readIdentifierToken();
+  void_t readCommentToken();
 
 private:
   static uint_t readPreprocessorInteger(const char_t*& p);
   static String readPreprocessorString(const char_t*& p);
   static char_t unescape(const char_t*& p);
-
-private:
-  bool_t parseBody();
-  bool_t parseParenthesize();
-  bool_t parseClass(Class*& _class);
-  bool_t parseTemplate();
-  bool_t parseNamespace();
-  TypeName* parseTypeName();
-  bool_t parseNamespaceBody(bool_t allowEof = false);
 
 };

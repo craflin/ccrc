@@ -4,6 +4,7 @@
 
 #include "Reader.h"
 #include "Rules.h"
+#include "Generator.h"
 
 void_t usage(char_t* argv[])
 {
@@ -48,11 +49,16 @@ int_t main(int_t argc, char_t* argv[])
   if(inputFile.isEmpty() || outputFile.isEmpty())
     return usage(argv), 1;
 
-  // action
+  // read rule set
   Reader reader;
   Rules rules;
   if(!reader.read(inputFile, rules))
     return Console::errorf("%s", (const char_t*)reader.getError()), 1;
+
+  // generate parser code
+  Generator generator;
+  if(!generator.generate(rules, outputFile))
+    return Console::errorf("%s", (const char_t*)generator.getError()), 1;
 
   return 0;
 }

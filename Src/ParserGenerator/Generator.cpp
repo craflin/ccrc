@@ -6,7 +6,7 @@
 #include "Generator.h"
 #include "Rules.h"
 
-bool_t Generator::generate(const Rules& rules, const String& outputFile)
+bool_t Generator::generateHeader(const Rules& rules, const String& outputFile)
 {
   openFile(outputFile);
 
@@ -26,6 +26,14 @@ bool_t Generator::generate(const Rules& rules, const String& outputFile)
     writeFields(rule->productionRoot, writtenFields);
     writeFile("};\n\n");
   }
+
+  closeFile();
+  return error.isEmpty();
+}
+
+bool_t Generator::generateSource(const Rules& rules, const String& outputFile)
+{
+  openFile(outputFile);
 
   for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
   {
@@ -115,6 +123,8 @@ String Generator::getVariableName(const String& name)
     if(*p)
       ++p;
   }
+  if(result == "operator")
+    return "op";
   return result;
 }
 

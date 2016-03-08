@@ -11,7 +11,8 @@ class Production;
 class Generator
 {
 public:
-  bool_t generate(const Rules& rules, const String& outputFile);
+  bool_t generateHeader(const Rules& rules, const String& outputFile);
+  bool_t generateSource(const Rules& rules, const String& outputFile);
 
   const String& getError() const {return error;}
 

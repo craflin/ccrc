@@ -45,6 +45,7 @@ bool_t Reader::read(const String& filePath, Rules& rules)
       return 1;
   }
 
+  /*
   struct PrintProduction
   {
     static void_t print(const String& indent, const Production& production)
@@ -64,6 +65,7 @@ bool_t Reader::read(const String& filePath, Rules& rules)
     PrintProduction::print("    ", rule->productionRoot);
     Console::printf("\n");
   }
+  */
   return true;
 }
 

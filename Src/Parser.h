@@ -57,8 +57,20 @@ private:
   void_t readCommentToken();
 
 private:
+  struct Identifier;
+  struct DecimalLiteral;
+  struct OctalLiteral;
+  struct HexadecimalLiteral;
+  struct IntegerLiteral;
+  struct CharacterLiteral;
+  struct FloatingLiteral;
+  struct StringLiteral;
+
+private:
   static uint_t readPreprocessorInteger(const char_t*& p);
   static String readPreprocessorString(const char_t*& p);
   static char_t unescape(const char_t*& p);
 
+private:
+#include "ParserGenerated.h"
 };

@@ -61,22 +61,9 @@ boolean_literal
     'false'
     'true'
 
-c_char
-    ANY_CHARACTER_EXCEPT_NEWLINE_SQUOTE_BACKSLASH
-    escape_sequence
-    universal_character_name
-
-c_char_sequence
-    c_char
-    c_char_sequence c_char
-
 cast_expression
     unary_expression
     '(' type_id ')' cast_expression
-
-character_literal
-    "'" c_char_sequence "'"
-    "L'" c_char_sequence "'"
 
 class_head
     class_key [ identifier ] [ base_clause ]
@@ -116,16 +103,6 @@ constant_expression
 constant_initializer
     '=' constant_expression
 
-control_line
-    '#' 'include' pp_tokens new_line
-    '#' 'define' identifier replacement_list new_line
-    '#' 'define' identifier lparen [ identifier_list ] ')' replacement_list new_line
-    '#' 'undef' identifier new_line
-    '#' 'line' pp_tokens new_line
-    '#' 'error' [ pp_tokens ] new_line
-    '#' 'pragma' [ pp_tokens ] new_line
-    '#' new_line
-
 conversion_declarator
     ptr_operator [ conversion_declarator ]
     
@@ -144,10 +121,6 @@ cv_qualifier
 
 cv_qualifier_seq
     cv_qualifier [ cv_qualifier_seq ]
-
-decimal_literal
-    nonzero_digit
-    decimal_literal digit
 
 decl_specifier
     storage_class_specifier
@@ -187,13 +160,6 @@ delete_expression
     [ '::' ] 'delete' cast_expression
     [ '::' ] 'delete' '[' ']' cast_expression
 
-digit
-    DIGIT
- 
-digit_sequence
-    digit
-    digit_sequence digit
-
 direct_abstract_declarator
     [ direct_abstract_declarator ] '(' paramerter_declaration_clause ')' [ cv_qualifier_seq ] [ exception_specification ]
     [ direct_abstract_declarator ] '[' [ constant_expression ] ']'
@@ -214,19 +180,6 @@ elaborated_type_specifier
     'enum' [ '::' ] [ nested_name_specifier ] identifier
     'typename' [ '::' ] nested_name_specifier identifier
     'typename' [ '::' ] nested_name_specifier [ 'template' ] template_id
-
-elif_group
-    '#' 'elif' constant_expression new_line [ group ]
-
-elif_groups
-    elif_group
-    elif_groups elif_group
-
-else_group
-    '#' 'else' new_line [ group ]
-
-endif_line
-    '#' 'endif' new_line
 
 enum_name
     identifier
@@ -250,11 +203,6 @@ equality_expression
     equality_expression '==' relational_expression
     equality_expression '!=' relational_expression
 
-escape_sequence
-    simple_escape_sequence
-    octal_escape_sequence
-    hexadecimal_escape_sequence
-
 exception_declatation
     type_specifier_seq declarator
     type_specifier_seq abstract_declarator
@@ -274,10 +222,6 @@ explicit_instantiation
 explicit_specialization
     'template' '<' '>' declaration
 
-exponent_part
-    'e' [ sign ] digit_sequence
-    'E' [ sign ] digit_sequence
-
 expression
     assignment_expression
     expression ',' assignment_expression
@@ -292,23 +236,9 @@ expression_statement
 extension_namespace_definition
     'namespace' original_namespace_name '{' namespace_body '}'
 
-floating_literal
-    fractional_constant [ exponent_part ] [ floating_suffix ]
-    digit_sequence exponent_part [ floating_suffix ]
-
-floating_suffix
-    'f'
-    'l'
-    'F'
-    'L'
-
 for_init_statement
     expression_statement
     simple_declaration
-
-fractional_constant
-    [ digit_sequence ] '.' digit_sequence
-    digit_sequence '.'
 
 function_body
     compound_statement
@@ -325,88 +255,19 @@ function_specifier
 function_try_block
     'try' [ ctor_initializer ] function_body handler_seq
 
-group
-    group_part
-    group group_part
-
-group_part
-    [ pp_tokens ] new_line
-    if_section
-    control_line
-
-h_char
-    ANY_CHARACTER_EXCEPT_NEWLINE_GT
-
-h_char_sequence
-    h_char
-    h_char_sequence h_char
-
 handler
     'catch' '(' exception_declatation ')' compound_statement
 
 handler_seq
     handler [ handler_seq ]
-    
-header_name
-    '<' h_char_sequence '>'
-    '"' q_char_sequence '"'
-
-hex_quad
-    hexadecimal_digit hexadecimal_digit hexadecimal_digit hexadecimal_digit
-
-hexadecimal_digit
-    '0'
-    '1'
-    '2'
-    '3'
-    '4'
-    '5'
-    '6'
-    '7'
-    '8'
-    '9'
-    'a'
-    'b'
-    'c'
-    'd'
-    'e'
-    'f'
-    'A'
-    'B'
-    'C'
-    'D'
-    'E'
-    'F'
-
-hexadecimal_escape_sequence
-    '\x' hexadecimal_digit
-    hexadecimal_escape_sequence hexadecimal_digit
-
-hexadecimal_literal
-    '0x' hexadecimal_digit
-    '0X' hexadecimal_digit
-    hexadecimal_literal hexadecimal_digit
 
 id_expression
     unqualified_id
     qualified_id
 
-identifier
-    nondigit
-    identifier nondigit
-    identifier digit
-
 identifier_list
     identifier
     identifier_list ',' identifier
-
-if_group
-    '#' 'if' constant_expression new_line [ group ]
-    '#' 'ifdef' identifier new_line [ group ]
-    '#' 'ifndef' identifier new_line [ group ]
-
-if_section
-    if_group [ elif_groups ] [ else_group ] endif_line
 
 inclusive_or_expression
     exclusive_or_expression
@@ -431,15 +292,6 @@ initializer_clause
 initializer_list
     initializer_clause
     initializer_list ',' initializer_clause
-
-integer_literal
-    decimal_literal [ integer_suffix ]
-    octal_literal [ integer_suffix ]
-    hexadecimal_literal [ integer_suffix ]
-
-integer_suffix
-    unsigned_suffix [ long_suffix ]
-    long_suffix [ unsigned_suffix ]
 
 iteration_statement
     'while' '(' condition ')' statement
@@ -475,13 +327,6 @@ logical_and_expression
 logical_or_expression
     logical_and_expression
     logical_or_expression '||' logical_and_expression
-
-long_suffix
-    'l'
-    'L'
-
-lparen
-    LEFT_PARENTHESIS_WITHOUT_LEADING_WS
 
 mem_initializer
     mem_initializer_id '(' [ expression_list ] ')'
@@ -556,49 +401,11 @@ new_expression
 new_initializer
     '(' [ expression_list ] ')'
 
-new_line
-    NEWLINE
-
 new_placement
     '(' expression_list ')'
 
 new_type_id
     type_specifier_seq [ new_declarator ]
-
-nondigit
-    universal_character_name
-    ALPHA_CHARACTER
-    '_'
-
-nonzero_digit
-    '1'
-    '2'
-    '3'
-    '4'
-    '5'
-    '6'
-    '7'
-    '8'
-    '9'
-
-octal_digit
-    '0'
-    '1'
-    '2'
-    '3'
-    '4'
-    '5'
-    '6'
-    '7'
-
-octal_escape_sequence
-    '\' octal_digit
-    '\' octal_digit octal_digit
-    '\' octal_digit octal_digit octal_digit
-
-octal_literal
-    '0'
-    octal_literal octal_digit
 
 operator
     'new'
@@ -692,103 +499,6 @@ postfix_expression
     'typeid' '(' expression ')'
     'typeid' '(' type_id ')'
 
-pp_number
-    digit
-    '.' digit
-    pp_number digit
-    pp_number nondigit
-    pp_number 'e' sign
-    pp_number 'E' sign
-    pp_number '.'
-
-pp_tokens
-    preprocessing_token
-    pp_tokens preprocessing_token
-
-preprocessing_file
-    [ group ]
-
-preprocessing_op_or_punc
-    '{'
-    '}'
-    '['
-    ']'
-    '#'
-    '##'
-    '('
-    ')'
-    '<:'
-    ':>'
-    '<%'
-    '%>'
-    '%:'
-    '%:%:'
-    ';'
-    ':'
-    '...'
-    'new'
-    'delete'
-    '?'
-    '::'
-    '.'
-    '.*'
-    '+'
-    '-'
-    '*'
-    '/'
-    '%'
-    '^'
-    '&'
-    '|'
-    '~'
-    '!'
-    '='
-    '<'
-    '>'
-    '+='
-    '-='
-    '*='
-    '/='
-    '%='
-    '^='
-    '&='
-    '|='
-    '<<'
-    '>>'
-    '>>='
-    '<<='
-    '=='
-    '!='
-    '<='
-    '>='
-    '&&'
-    '||'
-    '++'
-    '--'
-    ','
-    '->*'
-    '->'
-    'and'
-    'and_eq'
-    'bitand'
-    'bitor'
-    'compl'
-    'not'
-    'not_eq'
-    'or'
-    'or_eq'
-    'xor'
-    'xor_eq'
-
-preprocessing_token
-    header_name
-    identifier
-    pp_number
-    character_literal
-    string_literal
-    preprocessing_op_or_punc
-    ANY_NOT_YET_COVERED_NON_WS_CHARACTER
-
 primary_expression
     literal
     'this'
@@ -808,13 +518,6 @@ ptr_operator
 pure_specifier
     '=' '0'
 
-q_char
-    ANY_CHARACTER_EXCEPT_NEWLINE_DQUOTE
-
-q_char_sequence
-    q_char
-    q_char_sequence q_char
-
 qualified_id
     [ '::' ] nested_name_specifier [ 'template' ] unqualified_id
     '::' identifier
@@ -830,18 +533,6 @@ relational_expression
     relational_expression '>' shift_expression
     relational_expression '<=' shift_expression
     relational_expression '>=' shift_expression
-
-replacement_list
-    [ pp_tokens ]
-
-s_char
-    ANY_CHARACTER_EXCEPT_NEWLINE_DQUOTE_BACKSLASH
-    escape_sequence
-    universal_character_name
-
-s_char_sequence
-    s_char
-    s_char_sequence s_char
 
 selection_statement
     'if' '(' condition ')' statement
@@ -859,19 +550,6 @@ sign
 
 simple_declaration
     [ decl_specifier_seq ] [ init_declarator_list ] ';'
-
-simple_escape_sequence
-    "\'"
-    '\"'
-    '\?'
-    '\\'
-    '\a'
-    '\b'
-    '\f'
-    '\n'
-    '\r'
-    '\t'
-    '\v'
 
 simple_type_specifier
     [ '::' ] [ nested_name_specifier ] type_name
@@ -909,13 +587,8 @@ storage_class_specifier
     'extern'
     'mutable'
 
-string_literal
-    '"' [ s_char_sequence ] '"'
-    'L"' [ s_char_sequence ] '"'
-
 syntax
-    cpp_syntax_translation_unit
-    preprocessor_syntax_preprocessing_file
+    translation_unit
 
 template_argument
     assignment_expression
@@ -1003,10 +676,6 @@ unary_operator
     '!'
     '~'
 
-universal_character_name
-    '\u' hex_quad
-    '\U' hex_quad hex_quad
-
 unnamed_namespace_definition
     'namespace' '{' namespace_body '}'
 
@@ -1016,10 +685,6 @@ unqualified_id
     conversion_function_id
     '~' class_name
     template_id
-
-unsigned_suffix
-    'u'
-    'U'
 
 using_declaration
     'using' [ 'typename' ] [ '::' ] nested_name_specifier unqualified_id ';'

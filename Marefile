@@ -12,6 +12,16 @@ targets = {
     files = {
       "Src/*.cpp" = cppSource
       "Src/*.h"
+      "Src/Parser.bnf" = {
+        output = "Src/ParserGenerated.cpp Src/ParserGenerated.h"
+        dependencies = "ParserGenerator"
+        command = {
+          "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -y -o Src/ParserGenerated.h"
+          "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -o Src/ParserGenerated.cpp"
+        }
+      },
+      -"Src/ParserGenerated.h"
+      -"Src/ParserGenerated.cpp"
     }
     if tool == "vcxproj" {
       linkFlags += { "/SUBSYSTEM:CONSOLE" }

@@ -82,12 +82,11 @@ int_t main(int_t argc, char_t* argv[])
   }
 
   // parse data
-  Parser parser;
-  if(!parser.parse(input))
+  if(!Parser::parse(input))
   {
     String file, message;
     uint_t line;
-    parser.getError(file, line, message);
+    Parser::getError(file, line, message);
     Console::errorf("%s(%u): error: %s\n", (const char_t*)file, line, (const char_t*)message);
     return 1;
   }

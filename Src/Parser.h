@@ -1,25 +1,14 @@
 
 #pragma once
 
-#include <nstd/List.h>
-#include <nstd/Pool.h>
+#include <nstd/String.h>
 
-#include "Namespace.h"
-#include "Class.h"
-#include "TypeName.h"
-
-class Parser
+namespace Parser
 {
-public:
-  Parser() : currentLine(1) {}
-
   bool_t parse(const String& data);
 
   void_t getError(String& file, uint_t& line, String& message);
 
-  //void_t getClasses(List<Class*>& classes) {rootNamespace.getClasses(classes);}
-
-private:
   enum TokenType
   {
     integerType,
@@ -41,22 +30,22 @@ private:
     int line;
   };
 
-private:
-  const char_t* p;
-  uint_t currentLine;
-  String currentFile;
-  String error;
-  Token token;
-  String lastComment;
+  extern Token token;
 
-private:
   void_t readToken();
   void_t readTokenRaw();
   void_t readNumberToken();
   void_t readIdentifierToken();
   void_t readCommentToken();
 
-private:
+  uint_t readPreprocessorInteger(const char_t*& p);
+  String readPreprocessorString(const char_t*& p);
+  char_t unescape(const char_t*& p);
+
+  void_t pushState();
+  void_t popState();
+  void_t dropState(size_t count);
+
   struct Identifier;
   struct DecimalLiteral;
   struct OctalLiteral;
@@ -66,11 +55,14 @@ private:
   struct FloatingLiteral;
   struct StringLiteral;
 
-private:
-  static uint_t readPreprocessorInteger(const char_t*& p);
-  static String readPreprocessorString(const char_t*& p);
-  static char_t unescape(const char_t*& p);
+  Identifier* parseIdentifier();
+  DecimalLiteral* parseDecimalLiteral();
+  OctalLiteral* parseOctalLiteral();
+  HexadecimalLiteral* parseHexadecimalLiteral();
+  IntegerLiteral* parseIntegerLiteral();
+  CharacterLiteral* parseCharacterLiteral();
+  FloatingLiteral* parseFloatingLiteral();
+  StringLiteral* parseStringLiteral();
 
-private:
-#include "ParserGenerated.h"
+
 };

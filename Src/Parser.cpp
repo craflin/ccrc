@@ -3,9 +3,29 @@
 
 #include "Parser.h"
 
-bool_t Parser::parse(const String& data)
+namespace Parser
+{
+
+struct State
+{
+  const char_t* p;
+  uint_t currentLine;
+  String currentFile;
+  Token token;
+  String lastComment;
+};
+
+static const char_t* p;
+static uint_t currentLine;
+static String currentFile;
+Token token;
+static String lastComment; // todo: remove static?
+static String error;
+
+bool_t parse(const String& data)
 {
   p = data;
+  currentLine = 1;
 
   try
   {
@@ -14,20 +34,20 @@ bool_t Parser::parse(const String& data)
   }
   catch(const String& error)
   {
-    this->error = error;
+    Parser::error = error;
     return false;
   }
   return true;
 }
 
-void_t Parser::getError(String& file, uint_t& line, String& message)
+void_t getError(String& file, uint_t& line, String& message)
 {
   file = token.file;
   line = token.line;
   message = error;
 }
 
-void_t Parser::readToken()
+void_t readToken()
 {
   lastComment.clear();
   for(;;)
@@ -54,7 +74,7 @@ void_t Parser::readToken()
   }
 }
 
-void_t Parser::readTokenRaw()
+void_t readTokenRaw()
 {
   for(;;)
     switch(*p)
@@ -227,7 +247,7 @@ endloop:;
   }
 }
 
-void_t Parser::readNumberToken()
+void_t readNumberToken()
 {
   ASSERT(*p == '+' || *p == '-' || String::isDigit(*p));
   const char_t* start = p;
@@ -265,7 +285,7 @@ void_t Parser::readNumberToken()
   return;
 }
 
-void_t Parser::readIdentifierToken()
+void_t readIdentifierToken()
 {
   ASSERT(String::isAlpha(*p) || *p == '_');
   const char_t* start = p;
@@ -277,7 +297,7 @@ void_t Parser::readIdentifierToken()
   return;
 }
 
-void_t Parser::readCommentToken()
+void_t readCommentToken()
 {
   ASSERT(*p == '/');
   if(p[1] == '/')
@@ -332,7 +352,7 @@ void_t Parser::readCommentToken()
   }
 }
 
-uint_t Parser::readPreprocessorInteger(const char_t*& p)
+uint_t readPreprocessorInteger(const char_t*& p)
 {
   while(String::isSpace(*p))
     ++p;
@@ -346,7 +366,7 @@ uint_t Parser::readPreprocessorInteger(const char_t*& p)
   return result;
 }
 
-String Parser::readPreprocessorString(const char_t*& p)
+String readPreprocessorString(const char_t*& p)
 {
   while(String::isSpace(*p))
     ++p;
@@ -377,7 +397,7 @@ String Parser::readPreprocessorString(const char_t*& p)
     }
 }
 
-char_t Parser::unescape(const char_t*& p)
+char_t unescape(const char_t*& p)
 {
   ++p;
   char_t c = *(p++);
@@ -436,3 +456,20 @@ char_t Parser::unescape(const char_t*& p)
     return '\\';
   }
 }
+
+void_t pushState()
+{
+}
+
+void_t popState()
+{
+}
+
+void_t dropState(size_t count)
+{
+  for(size_t i = 0; i < count; ++i)
+  {
+  }
+}
+
+};

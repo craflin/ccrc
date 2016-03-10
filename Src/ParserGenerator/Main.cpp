@@ -15,11 +15,11 @@ int_t main(int_t argc, char_t* argv[])
 {
   String inputFile;
   String outputFile;
-  bool_t generateHeader = false;
+  String headerFile;
   {
     Process::Option options[] = {
         {'o', "output", Process::argumentFlag},
-        {'y', "header", Process::optionFlag},
+        {'y', "header", Process::optionFlag | Process::argumentFlag},
         {'h', "help", Process::optionFlag},
     };
     Process::Arguments arguments(argc, argv, options);
@@ -32,7 +32,7 @@ int_t main(int_t argc, char_t* argv[])
         outputFile = argument;
         break;
       case 'y':
-        generateHeader = true;
+        headerFile = argument;
         break;
       case 0:
         if(inputFile.isEmpty())
@@ -62,14 +62,14 @@ int_t main(int_t argc, char_t* argv[])
 
   // generate parser code
   Generator generator;
-  if(generateHeader)
+  if(outputFile == headerFile)
   {
     if(!generator.generateHeader(rules, outputFile))
       return Console::errorf("%s", (const char_t*)generator.getError()), 1;
   }
   else
   {
-    if(!generator.generateSource(rules, outputFile))
+    if(!generator.generateSource(headerFile, rules, outputFile))
       return Console::errorf("%s", (const char_t*)generator.getError()), 1;
   }
 

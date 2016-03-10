@@ -142,8 +142,7 @@ declaration
     namespace_definition
 
 declaration_seq
-    declaration
-    declaration_seq declaration
+    [ declaration_seq ] declaration
 
 declaration_statement
     block_declaration

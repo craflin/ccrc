@@ -10,6 +10,16 @@ bool_t Generator::generateHeader(const Rules& rules, const String& outputFile)
 {
   openFile(outputFile);
 
+  writeFile("\n");
+  writeFile("#pragma once\n");
+  writeFile("\n");
+  writeFile("#include <nstd/Base.h>\n");
+  writeFile("\n");
+
+  writeFile("namespace Parser\n");
+  writeFile("{\n");
+  writeFile("\n");
+
   for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
     writeFile(String("struct ") + getTypeName(i.key()) + ";\n");
 
@@ -23,17 +33,49 @@ bool_t Generator::generateHeader(const Rules& rules, const String& outputFile)
     writeFile("{\n");
     writeFile("  int_t type;\n");
     writtenFields.clear();
+    if(i.key() == "class_head")
+    {
+      int k = 42;
+    }
     writeFields(rule->productionRoot, writtenFields);
     writeFile("};\n\n");
   }
+
+  for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
+  {
+    Rule* rule = *i;
+    String typeName = getTypeName(i.key());
+    String variableName = getVariableName(i.key());
+    writeFile(typeName + "* parse" + typeName + "();\n");
+  }
+
+  writeFile("};\n");
 
   closeFile();
   return error.isEmpty();
 }
 
-bool_t Generator::generateSource(const Rules& rules, const String& outputFile)
+bool_t Generator::generateSource(const String& headerFile, const Rules& rules, const String& outputFile)
 {
   openFile(outputFile);
+
+  writeFile("\n");
+
+  writeFile("#include \"Parser.h\"\n");
+  writeFile("\n");
+
+  if(!headerFile.isEmpty())
+  {
+    writeFile(String("#include \"") + headerFile + "\"\n");
+    writeFile("\n");
+  }
+
+  writeFile("namespace Parser\n");
+  writeFile("{\n");
+  writeFile("\n");
+
+  //writeFile("\n");
+  //writeFile("\n");
 
   for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
   {
@@ -49,6 +91,8 @@ bool_t Generator::generateSource(const Rules& rules, const String& outputFile)
     writeFile("  return 0;\n");
     writeFile("}\n\n");
   }
+
+  writeFile("};\n");
 
   closeFile();
   return error.isEmpty();
@@ -144,10 +188,11 @@ void_t Generator::writeFields(const Production& production, HashSet<String>& wri
     if(!name.startsWith("'") && !name.startsWith("\"") && !name.startsWith("['") && !name.startsWith("[\""))
     {
       String variableName = getVariableName(name);
-      if(writtenFields.contains(variableName))
-        continue;
-      writeFile(String("  ") + getTypeName(name) + "* " + variableName + ";\n");
-      writtenFields.append(variableName);
+      if(!writtenFields.contains(variableName))
+      {
+        writeFile(String("  ") + getTypeName(name) + "* " + variableName + ";\n");
+        writtenFields.append(variableName);
+      }
     }
     if(i->subProduction)
       writeFields(*i->subProduction, writtenFields);

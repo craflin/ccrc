@@ -1,7 +1,10 @@
 
+#include <nstd/Pool.h>
 #include <nstd/Debug.h>
+#include <nstd/HashSet.h>
 
 #include "Parser.h"
+#include "ParserGenerated.h"
 
 using namespace Parser;
 
@@ -22,6 +25,9 @@ namespace Parser
   Token token;
   static String lastComment; // todo: remove static?
   static String error;
+  static TranslationUnit* root;
+  static Pool<State> states;
+  static HashSet<String> keywords;
 };
 
 
@@ -30,10 +36,80 @@ bool_t Parser::parse(const String& data)
   p = data;
   currentLine = 1;
 
+  static String keywords[] = {
+    "private",
+    "protected",
+    "public",
+    "asm",
+    "false",
+    "true",
+    "class",
+    "struct",
+    "union",
+    "const",
+    "volatile",
+    "friend",
+    "typedef",
+    "delete",
+    "enum",
+    "typename",
+    "template",
+    "throw",
+    "inline",
+    "virtual",
+    "explicit",
+    "try",
+    "catch",
+    "while",
+    "do",
+    "for",
+    "break",
+    "continue",
+    "return",
+    "goto",
+    "case",
+    "default",
+    "extern",
+    "namespace",
+    "new",
+    "operator",
+    "dynamic_cast",
+    "static_cast",
+    "reinterpret_cast",
+    "const_cast",
+    "typeid",
+    "this",
+    "if",
+    "else",
+    "switch",
+    "char",
+    "wchar_t",
+    "bool",
+    "short",
+    "int",
+    "long",
+    "signed",
+    "unsigned",
+    "float",
+    "double",
+    "void",
+    "auto",
+    "register",
+    "static",
+    "mutable",
+    "export",
+    "sizeof",
+    "using",
+  };
+
+  for(size_t i = 0; i < sizeof(keywords) / sizeof(*keywords); ++i)
+    Parser::keywords.append(keywords[i]);
+
   try
   {
     readToken();
-    //root = parseTranslationUnit();
+    root = parseTranslationUnit();
+    int k = 32;
   }
   catch(const String& error)
   {
@@ -182,7 +258,7 @@ endloop:;
     }
   case '\'':
     {
-      token.type = charType;
+      token.type = characterType;
       const char_t* start = p++;
       for(;;)
         switch(*p)
@@ -245,7 +321,7 @@ endloop:;
     if(String::isDigit(*p))
       return readNumberToken();
     if(String::isAlpha(*p) || *p == '_')
-      return readIdentifierToken();
+      return readIdentifierOrKeywordToken();
     return token.type = operatorType, token.value = String(p++, 1), (void_t)0;
   }
 }
@@ -280,7 +356,7 @@ void_t Parser::readNumberToken()
         ++p;
     }
     token.value = String(start, p - start);
-    token.type = realType;
+    token.type = floatingType;
     return;
   }
   token.value = String(start, p - start);
@@ -288,7 +364,7 @@ void_t Parser::readNumberToken()
   return;
 }
 
-void_t Parser::readIdentifierToken()
+void_t Parser::readIdentifierOrKeywordToken()
 {
   ASSERT(String::isAlpha(*p) || *p == '_');
   const char_t* start = p;
@@ -296,7 +372,7 @@ void_t Parser::readIdentifierToken()
   while(String::isAlpha(*p) || *p == '_' || String::isDigit(*p))
     ++p;
   token.value = String(start, p - start);
-  token.type = identifierType;
+  token.type = keywords.contains(token.value) ? keywordType : identifierType;
   return;
 }
 
@@ -462,15 +538,111 @@ char_t Parser::unescape(const char_t*& p)
 
 void_t Parser::pushState()
 {
+  State& state = states.append();
+  state.p = p;
+  state.currentLine = currentLine;
+  state.currentFile = currentFile;
+  state.token = token;
+  state.lastComment = lastComment;
 }
 
 void_t Parser::popState()
 {
+  ASSERT(!states.isEmpty());
+  const State& state = states.back();
+  p = state.p;
+  currentLine = state.currentLine;
+  currentFile = state.currentFile;
+  token = state.token;
+  lastComment = state.lastComment;
+  states.removeBack();
 }
 
 void_t Parser::dropState(size_t count)
 {
   for(size_t i = 0; i < count; ++i)
   {
+    ASSERT(!states.isEmpty());
+    states.removeBack();
   }
+}
+
+Identifier* Parser::parseIdentifier()
+{
+  if(token.type != identifierType)
+    return 0;
+  Identifier* result = new Identifier;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+DecimalLiteral* Parser::parseDecimalLiteral()
+{
+  if(token.type != decimalType)
+    return 0;
+  DecimalLiteral* result = new DecimalLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+OctalLiteral* Parser::parseOctalLiteral()
+{
+  if(token.type != octalType)
+    return 0;
+  OctalLiteral* result = new OctalLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+HexadecimalLiteral* parseHexadecimalLiteral()
+{
+  if(token.type != hexadecimalType)
+    return 0;
+  HexadecimalLiteral* result = new HexadecimalLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+IntegerLiteral* Parser::parseIntegerLiteral()
+{
+  if(token.type != integerType)
+    return 0;
+  IntegerLiteral* result = new IntegerLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+CharacterLiteral* Parser::parseCharacterLiteral()
+{
+  if(token.type != characterType)
+    return 0;
+  CharacterLiteral* result = new CharacterLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+FloatingLiteral* Parser::parseFloatingLiteral()
+{
+  if(token.type != floatingType)
+    return 0;
+  FloatingLiteral* result = new FloatingLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
+}
+
+StringLiteral* Parser::parseStringLiteral()
+{
+  if(token.type != stringType)
+    return 0;
+  StringLiteral* result = new StringLiteral;
+  result->value = token.value;
+  readToken();
+  return result;
 }

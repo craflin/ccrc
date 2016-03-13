@@ -212,9 +212,9 @@ void_t Generator::writeFields(const Production& production, HashSet<String>& wri
 
 void_t Generator::writeProductionCode(const String& indent, uint_t depth, const String& typeName, const String& variableName, bool_t isLeftRecursive, const Production& production)
 {
-  writeFile(indent + "  pushState();\n");
   for(HashMap<String, Production::Data>::Iterator i = production.productions.begin(), end  = production.productions.end(); i != end; ++i)
   {
+    writeFile(indent + "  pushState();\n");
     const String& name = i.key();
     bool onLeftRecursiveBranch = isLeftRecursive && getTypeName(name) == typeName;
     bool optional = name.startsWith("[");
@@ -222,7 +222,6 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
     if(onLeftRecursiveBranch)
     {
       ASSERT(depth == 0);
-      writeFile(indent + "  popState();\n");
       writeFile(indent + "loop:\n");
       writeFile(indent + "  "  + variableName + " = {};\n");
       writeFile(indent + "  "  + variableName + "." + variableName + " = result;\n");
@@ -244,7 +243,9 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
     writeFile(indent + "  {\n");
     if(terminal && !optional)
         writeFile(indent + "    readToken();\n");
-    if(!i->subProduction)
+    if(i->subProduction)
+      writeProductionCode(indent + "  ", depth + 1, typeName, variableName, isLeftRecursive, *i->subProduction);
+    if(i->lineIndex >= 0)
     {
       if(depth + 1 > 0)
         writeFile(indent + "    dropState(" + String::fromUInt(depth + 1) + ");\n");
@@ -257,8 +258,6 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
       else
         writeFile(indent + "    return new " + typeName + "(" + variableName + ");\n");
     }
-    else
-      writeProductionCode(indent + "  ", depth + 1, typeName, variableName, isLeftRecursive, *i->subProduction);
     writeFile(indent + "  }\n");
 
     if(onLeftRecursiveBranch)
@@ -269,6 +268,6 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
       writeFile(indent + "    return result;\n");
       writeFile(indent + "  }\n");
     }
+    writeFile(indent + "  popState();\n");
   }
-  writeFile(indent + "  popState();\n");
 }

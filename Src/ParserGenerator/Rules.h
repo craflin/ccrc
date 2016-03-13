@@ -10,7 +10,7 @@ public:
   struct Data
   {
     Production* subProduction;
-    uint_t lineIndex;
+    int_t lineIndex;
   };
 
 public:

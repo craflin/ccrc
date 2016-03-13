@@ -12,12 +12,16 @@ namespace Parser
   enum TokenType
   {
     integerType,
-    realType,
+    decimalType,
+    floatingType,
+    octalType,
+    hexadecimalType,
     operatorType,
     stringType,
-    charType,
+    characterType,
     eofType,
     identifierType,
+    keywordType,
     commentType,
     preprocessorType,
   };
@@ -35,7 +39,7 @@ namespace Parser
   void_t readToken();
   void_t readTokenRaw();
   void_t readNumberToken();
-  void_t readIdentifierToken();
+  void_t readIdentifierOrKeywordToken();
   void_t readCommentToken();
 
   uint_t readPreprocessorInteger(const char_t*& p);
@@ -46,14 +50,45 @@ namespace Parser
   void_t popState();
   void_t dropState(size_t count);
 
-  struct Identifier;
-  struct DecimalLiteral;
-  struct OctalLiteral;
-  struct HexadecimalLiteral;
-  struct IntegerLiteral;
-  struct CharacterLiteral;
-  struct FloatingLiteral;
-  struct StringLiteral;
+  struct Identifier
+  {
+    String value;
+  };
+
+  struct DecimalLiteral
+  {
+    String value;
+  };
+
+  struct OctalLiteral
+  {
+    String value;
+  };
+
+  struct HexadecimalLiteral
+  {
+    String value;
+  };
+
+  struct IntegerLiteral
+  {
+    String value;
+  };
+
+  struct CharacterLiteral
+  {
+    String value;
+  };
+
+  struct FloatingLiteral
+  {
+    String value;
+  };
+
+  struct StringLiteral
+  {
+    String value;
+  };
 
   Identifier* parseIdentifier();
   DecimalLiteral* parseDecimalLiteral();

@@ -408,10 +408,10 @@ new_type_id
     type_specifier_seq [ new_declarator ]
 
 operator
+    'new' '[]'
+    'delete' '[]'
     'new'
     'delete'
-    'new[]'
-    'delete[]'
     '+'
     '-'
     '*'
@@ -586,9 +586,6 @@ storage_class_specifier
     'static'
     'extern'
     'mutable'
-
-syntax
-    translation_unit
 
 template_argument
     assignment_expression

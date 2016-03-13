@@ -87,13 +87,16 @@ bool_t Reader::getToken(const char_t*& p, String& token)
     token = String(p, end - p);
     p = end;
     token.replace(" ", "");
-    return true;
+    goto returnToken;
   }
   const char_t* end = String::find(p, ' ');
   if(!end)
     end = p + String::length(p);
   token = String(p, end - p);
   p = end;
+returnToken:
+  while(String::isSpace(*p))
+    ++p;
   return true;
 }
 
@@ -145,7 +148,7 @@ bool_t Reader::handleLine(const String& line)
       if(it == (*production)->productions.end())
       {
         Production::Data& data = (*production)->productions.append(token, Production::Data());
-        data.lineIndex = lineIndex;
+        data.lineIndex = *p ? -1 : lineIndex;
         data.subProduction = 0;
         production = &data.subProduction;
       }

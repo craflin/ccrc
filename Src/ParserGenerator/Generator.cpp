@@ -67,8 +67,7 @@ bool_t Generator::generateSource(const String& headerFile, const Rules& rules, c
     writeFile("\n");
   }
 
-  writeFile("namespace Parser\n");
-  writeFile("{\n");
+  writeFile("using namespace Parser;\n");
   writeFile("\n");
 
   for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
@@ -84,7 +83,7 @@ bool_t Generator::generateSource(const String& headerFile, const Rules& rules, c
     if(isLeftRecursive)
       Console::printf("%s\n", (const char_t*)i.key());
 
-    writeFile(typeName + "* parse" + typeName + "()\n");
+    writeFile(typeName + "* Parser::parse" + typeName + "()\n");
     writeFile("{\n");
 
     if(isLeftRecursive)
@@ -103,8 +102,6 @@ bool_t Generator::generateSource(const String& headerFile, const Rules& rules, c
       writeFile("  return 0;\n");
     writeFile("}\n\n");
   }
-
-  writeFile("};\n");
 
   closeFile();
   return error.isEmpty();

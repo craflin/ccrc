@@ -63,6 +63,4 @@ namespace Parser
   CharacterLiteral* parseCharacterLiteral();
   FloatingLiteral* parseFloatingLiteral();
   StringLiteral* parseStringLiteral();
-
-
 };

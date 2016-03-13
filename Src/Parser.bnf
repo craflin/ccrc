@@ -142,11 +142,12 @@ declaration
     namespace_definition
 
 declaration_seq
-    [ declaration_seq ] declaration
+    declaration
+    declaration_seq declaration
 
 declaration_statement
     block_declaration
-    
+
 declarator
     direct_declarator
     ptr_operator declarator

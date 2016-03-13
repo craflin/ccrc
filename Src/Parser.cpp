@@ -472,4 +472,5 @@ void_t dropState(size_t count)
   }
 }
 
-};
+
+}; // namespace

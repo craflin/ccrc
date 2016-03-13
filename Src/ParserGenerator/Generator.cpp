@@ -2,6 +2,7 @@
 #include <nstd/Error.h>
 #include <nstd/HashSet.h>
 #include <nstd/Console.h>
+#include <nstd/Debug.h>
 
 #include "Generator.h"
 #include "Rules.h"
@@ -33,10 +34,6 @@ bool_t Generator::generateHeader(const Rules& rules, const String& outputFile)
     writeFile("{\n");
     writeFile("  int_t type;\n");
     writtenFields.clear();
-    if(i.key() == "class_head")
-    {
-      int k = 42;
-    }
     writeFields(rule->productionRoot, writtenFields);
     writeFile("};\n\n");
   }
@@ -74,21 +71,36 @@ bool_t Generator::generateSource(const String& headerFile, const Rules& rules, c
   writeFile("{\n");
   writeFile("\n");
 
-  //writeFile("\n");
-  //writeFile("\n");
-
   for(HashMap<String, Rule*>::Iterator i = rules.rules.begin(), end = rules.rules.end(); i != end; ++i)
   {
     Rule* rule = *i;
     String typeName = getTypeName(i.key());
     String variableName = getVariableName(i.key());
+
+    bool isLeftRecursive = false;
+    {for(HashMap<String, Production::Data>::Iterator i = rule->productionRoot.productions.begin(), end = rule->productionRoot.productions.end(); i != end; ++i)
+      if(getTypeName(i.key()) == typeName)
+        isLeftRecursive = true;}
+    if(isLeftRecursive)
+      Console::printf("%s\n", (const char_t*)i.key());
+
     writeFile(typeName + "* parse" + typeName + "()\n");
     writeFile("{\n");
+
+    if(isLeftRecursive)
+      writeFile(String("  ") + typeName + "* result = 0;\n");
+
     writeFile(String("  ") + typeName + " " + variableName + " = {};\n");
 
-    writeProductionCode(String(), 0, typeName, variableName, rule->productionRoot);
+    //if(isLeftRecursive)
+    //  writeFile(String("  ") + variableName + "." + variableName + " =  result;\n");
 
-    writeFile("  return 0;\n");
+    writeProductionCode(String(), 0, typeName, variableName, isLeftRecursive, rule->productionRoot);
+
+    if(isLeftRecursive)
+      writeFile("  return result;\n");
+    else
+      writeFile("  return 0;\n");
     writeFile("}\n\n");
   }
 
@@ -143,6 +155,8 @@ String Generator::getTypeName(const String& name)
     if(*p)
       ++p;
   }
+  if(result.length() > 0 && String::isDigit(((const char_t*)result)[result.length() - 1]))
+    result = result.substr(0, result.length() - 1);
   return result;
 }
 
@@ -199,68 +213,65 @@ void_t Generator::writeFields(const Production& production, HashSet<String>& wri
   }
 }
 
-void_t Generator::writeProductionCode(const String& indent, uint_t depth, const String& typeName, const String& variableName, const Production& production)
+void_t Generator::writeProductionCode(const String& indent, uint_t depth, const String& typeName, const String& variableName, bool_t isLeftRecursive, const Production& production)
 {
-  bool needPushPop = false;
+  writeFile(indent + "  pushState();\n");
   for(HashMap<String, Production::Data>::Iterator i = production.productions.begin(), end  = production.productions.end(); i != end; ++i)
   {
     const String& name = i.key();
-    if(name.startsWith("[") || name.startsWith("\"") || name.startsWith("'"))
+    bool onLeftRecursiveBranch = isLeftRecursive && getTypeName(name) == typeName;
+    bool optional = name.startsWith("[");
+    bool terminal = name.startsWith("'") || name.startsWith("\"") || name.startsWith("['") || name.startsWith("[\"");
+    if(onLeftRecursiveBranch)
     {
-      needPushPop = true;
-      break;
+      ASSERT(depth == 0);
+      writeFile(indent + "  popState();\n");
+      writeFile(indent + "loop:\n");
+      writeFile(indent + "  "  + variableName + " = {};\n");
+      writeFile(indent + "  "  + variableName + "." + variableName + " = result;\n");
+      writeFile(indent + "  pushState();\n");
     }
-  }
-  if(needPushPop)
-    writeFile(indent + "  pushState();\n");
-  else
-    --depth;
-  for(HashMap<String, Production::Data>::Iterator i = production.productions.begin(), end  = production.productions.end(); i != end; ++i)
-  {
-    const String& name = i.key();
-    if(!name.startsWith("'") && !name.startsWith("\"") && !name.startsWith("['") && !name.startsWith("[\""))
+    if(!terminal)
     {
-      writeFile(indent + String("  ") + variableName + "." + getVariableName(name) + " = parse" + getTypeName(name) + "();\n");
-      if(!name.startsWith("["))
-        writeFile(indent + String("  if(") + variableName + "." + getVariableName(name) + ")\n");
-      writeFile(indent + "  {\n");
-      if(!i->subProduction)
-      {
-        if(depth + 1 > 0)
-          writeFile(indent + String("    dropState(") + String::fromUInt(depth + 1) + ");\n");
-        writeFile(indent + String("    ") + variableName + ".type = " + String::fromUInt(i->lineIndex) + ";\n");
-        writeFile(indent + String("    return new ") + typeName + "(" + variableName + ");\n");
-      }
-      else
-        writeProductionCode(indent + "  ", depth + 1, typeName, variableName, *i->subProduction);
-      writeFile(indent + "  }\n");
+      if(!onLeftRecursiveBranch)
+        writeFile(indent + "  " + variableName + "." + getVariableName(name) + " = parse" + getTypeName(name) + "();\n");
+      if(!optional)
+        writeFile(indent + "  if(" + variableName + "." + getVariableName(name) + ")\n");
     }
     else
     {
-      if(!name.startsWith("["))
-      {
-        writeFile(indent + String("  if(token.value == ") + getTokenValue(name) + ")\n");
-        writeFile(indent + "  {\n");
+      writeFile(indent + "  if(token.value == " + getTokenValue(name) + ")\n");
+      if(optional)
         writeFile(indent + "    readToken();\n");
+    }
+    writeFile(indent + "  {\n");
+    if(terminal && !optional)
+        writeFile(indent + "    readToken();\n");
+    if(!i->subProduction)
+    {
+      if(depth + 1 > 0)
+        writeFile(indent + "    dropState(" + String::fromUInt(depth + 1) + ");\n");
+      writeFile(indent + "    " + variableName + ".type = " + String::fromUInt(i->lineIndex) + ";\n");
+      if(isLeftRecursive)
+      {
+        writeFile(indent + "    result = new " + typeName + "(" + variableName + ");\n");
+        writeFile(indent + "    goto loop;\n");
       }
       else
-      {
-        writeFile(indent + String("  if(token.value == ") + getTokenValue(name) + ")\n");
-        writeFile(indent + "    readToken();\n");
-        writeFile(indent + "  {\n");
-      }
-      if(!i->subProduction)
-      {
-        if(depth + 1 > 0)
-          writeFile(indent + String("    dropState(") + String::fromUInt(depth + 1) + ");\n");
-        writeFile(indent + String("    ") + variableName + ".type = " + String::fromUInt(i->lineIndex) + ";\n");
-        writeFile(indent + String("    return new ") + typeName + "(" + variableName + ");\n");
-      }
-      else
-        writeProductionCode(indent + "  ", depth + 1, typeName, variableName, *i->subProduction);
+        writeFile(indent + "    return new " + typeName + "(" + variableName + ");\n");
+    }
+    else
+      writeProductionCode(indent + "  ", depth + 1, typeName, variableName, isLeftRecursive, *i->subProduction);
+    writeFile(indent + "  }\n");
+
+    if(onLeftRecursiveBranch)
+    {
+      writeFile(indent + "  if(result)\n");
+      writeFile(indent + "  {\n");
+      writeFile(indent + "    popState();\n");
+      writeFile(indent + "    return result;\n");
       writeFile(indent + "  }\n");
     }
   }
-  if(needPushPop)
-    writeFile(indent + "  popState();\n");
+  writeFile(indent + "  popState();\n");
 }

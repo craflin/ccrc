@@ -2,9 +2,11 @@
 #include <nstd/File.h>
 #include <nstd/Error.h>
 #include <nstd/Console.h>
+#include <nstd/HashMap.h>
 
 #include "Reader.h"
 #include "Rules.h"
+#include "Generator.h"
 
 bool_t Reader::read(const String& filePath, Rules& rules)
 {
@@ -110,6 +112,7 @@ bool_t Reader::handleLine(const String& line)
     if(rules->rules.isEmpty())
       return false;
 
+    HashMap<String, uint_t> typeNames;
     Rule* rule = rules->rules.back();
     uint_t lineIndex = rule->productionLines++;
     Production* productionRoot = &rule->productionRoot;
@@ -117,6 +120,25 @@ bool_t Reader::handleLine(const String& line)
     String token;
     while(getToken(p, token))
     {
+      bool isOptional = token.startsWith("[");
+      bool isTerminal = token.startsWith("'") || token.startsWith("\"") || token.startsWith("['") || token.startsWith("[\"");
+
+      if(!isTerminal)
+      {
+        String typeName = Generator::getTypeName(token);
+        HashMap<String, uint_t>::Iterator it2 = typeNames.find(typeName);
+        size_t& count = it2 == typeNames.end() ? typeNames.append(typeName, 0) : *it2;
+        ++count;
+
+        if(count > 1)
+        {
+          if(isOptional)
+            token = token.substr(0, token.length() - 1) + String("_") + String::fromUInt(count) + "]";
+          else
+            token += String("_") + String::fromUInt(count);
+        }
+      }
+
       if(!*production)
         *production = new Production;
       HashMap<String, Production::Data>::Iterator it = (*production)->productions.find(token);
@@ -138,7 +160,8 @@ bool_t Reader::handleLine(const String& line)
     const char_t* end = String::find(p, ' ');
     if(!end)
       end = p + String::length(p);
-    rules->rules.append(String(p, end - p), new Rule);
+    String ruleName(p, end - p);
+    rules->rules.append(ruleName, new Rule);
   }
   return true;
 }

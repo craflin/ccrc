@@ -214,41 +214,44 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
 {
   for(HashMap<String, Production::Data>::Iterator i = production.productions.begin(), end  = production.productions.end(); i != end; ++i)
   {
-    writeFile(indent + "  pushState();\n");
     const String& name = i.key();
     bool onLeftRecursiveBranch = isLeftRecursive && getTypeName(name) == typeName;
-    bool optional = name.startsWith("[");
-    bool terminal = name.startsWith("'") || name.startsWith("\"") || name.startsWith("['") || name.startsWith("[\"");
+    bool isOptional = name.startsWith("[");
+    bool isTerminal = name.startsWith("'") || name.startsWith("\"") || name.startsWith("['") || name.startsWith("[\"");
     if(onLeftRecursiveBranch)
     {
       ASSERT(depth == 0);
       writeFile(indent + "loop:\n");
       writeFile(indent + "  "  + variableName + " = {};\n");
       writeFile(indent + "  "  + variableName + "." + variableName + " = result;\n");
-      writeFile(indent + "  pushState();\n");
     }
-    if(!terminal)
+    writeFile(indent + "  pushState();\n");
+    if(!isTerminal)
     {
       if(!onLeftRecursiveBranch)
         writeFile(indent + "  " + variableName + "." + getVariableName(name) + " = parse" + getTypeName(name) + "();\n");
-      if(!optional)
+      if(isOptional)
+        writeFile(indent + "  for(;;)\n");
+      else
         writeFile(indent + "  if(" + variableName + "." + getVariableName(name) + ")\n");
     }
     else
     {
       writeFile(indent + "  if(token.value == " + getTokenValue(name) + ")\n");
-      if(optional)
+      if(isOptional)
+      {
         writeFile(indent + "    readToken();\n");
+        writeFile(indent + "  for(;;)\n");
+      }
     }
     writeFile(indent + "  {\n");
-    if(terminal && !optional)
+    if(isTerminal && !isOptional)
         writeFile(indent + "    readToken();\n");
     if(i->subProduction)
       writeProductionCode(indent + "  ", depth + 1, typeName, variableName, isLeftRecursive, *i->subProduction);
     if(i->lineIndex >= 0)
     {
-      if(depth + 1 > 0)
-        writeFile(indent + "    dropState(" + String::fromUInt(depth + 1) + ");\n");
+      writeFile(indent + "    dropState(" + String::fromUInt(depth + 1) + ");\n");
       writeFile(indent + "    " + variableName + ".type = " + String::fromUInt(i->lineIndex) + ";\n");
       if(isLeftRecursive)
       {
@@ -258,16 +261,28 @@ void_t Generator::writeProductionCode(const String& indent, uint_t depth, const 
       else
         writeFile(indent + "    return new " + typeName + "(" + variableName + ");\n");
     }
+    if(isOptional)
+    {
+      if(isTerminal)
+        writeFile(indent + "    if(token.value == " + getTokenValue(name) + ")\n");
+      else
+        writeFile(indent + "    if(" + variableName + "." + getVariableName(name) + ")\n");
+      writeFile(indent + "    {\n");
+      if(!isTerminal)
+        writeFile(indent + "      " + variableName + "." + getVariableName(name) + " = 0;\n");
+      writeFile(indent + "      popState();\n");
+      writeFile(indent + "      pushState();\n");
+      writeFile(indent + "      continue;\n");
+      writeFile(indent + "    }\n");
+      writeFile(indent + "    break;\n");
+    }
     writeFile(indent + "  }\n");
+    writeFile(indent + "  popState();\n");
 
     if(onLeftRecursiveBranch)
     {
       writeFile(indent + "  if(result)\n");
-      writeFile(indent + "  {\n");
-      writeFile(indent + "    popState();\n");
       writeFile(indent + "    return result;\n");
-      writeFile(indent + "  }\n");
     }
-    writeFile(indent + "  popState();\n");
   }
 }

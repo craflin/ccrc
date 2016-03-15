@@ -1,4 +1,8 @@
 
+void _invalid_parameter_noinfoxx_test(int a);
+
+void __cdecl _invalid_parameter_noinfoxx(int a);
+
 class MyObject : public Reflected
 {
   class SubClass

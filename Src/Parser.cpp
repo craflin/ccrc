@@ -100,6 +100,10 @@ bool_t Parser::parse(const String& data)
     "export",
     "sizeof",
     "using",
+
+    "__cdecl", // MSC
+    "__declspec", // MSC
+
   };
 
   for(size_t i = 0; i < sizeof(keywords) / sizeof(*keywords); ++i)
@@ -148,6 +152,14 @@ void_t Parser::readToken()
       }
       break;
     default:
+      if(token.value == "__cdecl")
+      {
+        int k = 42;
+      }
+       if(token.value == "(")
+      {
+        int k = 42;
+      }
       return;
     }
   }
@@ -645,4 +657,30 @@ StringLiteral* Parser::parseStringLiteral()
   result->value = token.value;
   readToken();
   return result;
+}
+
+SkipParenthesis* Parser::parseSkipParenthesis()
+{
+  pushState();
+  size_t count = 0;
+  for(;;)
+  {
+    if(token.value == ')')
+    {
+      if(count == 0)
+      {
+        dropState(1);
+        return new SkipParenthesis;
+      }
+      --count;
+    }
+    if(token.value == '(')
+      ++count;
+    if(token.type == eofType)
+    {
+      popState();
+      throw String("Unmatched (");
+    }
+    readToken();
+  }
 }

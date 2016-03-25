@@ -4,7 +4,7 @@ buildDir = "Build/$(configuration)/$(target)"
 targets = {
 
   mmigen = cppApplication + {
-    dependencies = { "libnstd", "ParserGenerator" }
+    dependencies = { "libnstd" }
     includePaths = {
       "Ext/libnstd/include"
       "Ext/libclang/include"
@@ -18,16 +18,6 @@ targets = {
     files = {
       "Src/*.cpp" = cppSource
       "Src/*.h"
-      "Src/ParserGenerated.h"
-      "Src/ParserGenerated.cpp" = cppSource
-      "Src/Parser.bnf" = {
-        output = "Src/ParserGenerated.cpp Src/ParserGenerated.h"
-        dependencies = "ParserGenerator"
-        command = {
-          "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -y Src/ParserGenerated.h -o Src/ParserGenerated.h"
-          "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -y ParserGenerated.h -o Src/ParserGenerated.cpp"
-        }
-      }
       "Ext/libclang/bin/libclang.dll" = {
         output = "$(outputDir)/$(notdir $(file))"
         command = "copy $(subst /,\\,$(file)) $(subst /,\\,$(output))"
@@ -40,25 +30,7 @@ targets = {
       libs += { "pthread", "rt" }
     }
   }
-  
-  ParserGenerator = cppApplication + {
-    dependencies = { "libnstd" }
-    includePaths = { "Ext/libnstd/include" }
-    libPaths = { "$(dir $(buildDir))/libnstd" }
-    libs = { "nstd" }
-    root = "Src/ParserGenerator"
-    files = {
-      "Src/ParserGenerator/*.cpp" = cppSource
-      "Src/ParserGenerator/*.h"
-    }
-    if tool == "vcxproj" {
-      linkFlags += { "/SUBSYSTEM:CONSOLE" }
-    }
-    if platform == "Linux" {
-      libs += { "pthread", "rt" }
-    }
-  }
-  
+
   include "Ext/libnstd/libnstd.mare"
   libnstd += {
     folder = "Ext"

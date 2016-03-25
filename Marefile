@@ -5,9 +5,15 @@ targets = {
 
   mmigen = cppApplication + {
     dependencies = { "libnstd", "ParserGenerator" }
-    includePaths = { "Ext/libnstd/include" }
-    libPaths = { "$(dir $(buildDir))/libnstd" }
-    libs = { "nstd" }
+    includePaths = {
+      "Ext/libnstd/include"
+      "Ext/libclang/include"
+    }
+    libPaths = {
+      "$(dir $(buildDir))/libnstd"
+      "Ext/libclang/lib"
+    }
+    libs = { "nstd", "libclang" }
     root = "Src"
     files = {
       "Src/*.cpp" = cppSource
@@ -21,6 +27,10 @@ targets = {
           "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -y Src/ParserGenerated.h -o Src/ParserGenerated.h"
           "$(buildDir)/../ParserGenerator/ParserGenerator $(file) -y ParserGenerated.h -o Src/ParserGenerated.cpp"
         }
+      }
+      "Ext/libclang/bin/libclang.dll" = {
+        output = "$(outputDir)/$(notdir $(file))"
+        command = "copy $(subst /,\\,$(file)) $(subst /,\\,$(output))"
       }
     }
     if tool == "vcxproj" {

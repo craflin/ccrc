@@ -23,6 +23,7 @@ public:
 
 public:
   String name;
+  String comment;
   Type type;
   HashMap<String, String> templateParams;
   List<String> baseTypes;
@@ -34,16 +35,21 @@ public:
   void_t print()
   {
     String printName;
+    if(!comment.isEmpty())
+    {
+      printName.append(comment);
+      printName.append('\n');
+    }
     switch(type)
     {
     case enumType:
-      printName = "enum";
+      printName.append("enum");
       break;
     case classType:
-      printName = "class";
+      printName.append("class");
       break;
     case structType:
-      printName = "struct";
+      printName.append("struct");
       break;
     }
     printName.append(" - ");
@@ -105,12 +111,16 @@ class VisitorContext
 {
 public:
   MetaInfoData metaInfoData;
+
+  CXSourceLocation lastLocation;
 };
 
 CXChildVisitResult visitChildrenCallback(CXCursor cursor,
                                          CXCursor parent,
                                          CXClientData client_data) {
   VisitorContext& context = *(VisitorContext*)client_data;
+
+  CXSourceLocation location = clang_getCursorLocation(cursor);
 
   //show_spell(cursor);
   //show_linkage(cursor);
@@ -175,9 +185,36 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
           String name = String::fromCString(clang_getCString(typeName));
           //Console::printf("%s\n", (const tchar_t*)name);
           clang_disposeString(typeName);
+          
+          CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
+          CXSourceLocation lastLocation = context.lastLocation;
+          CXFile startFile, endFile;
+          unsigned int startOffset, endOffset;
+          clang_getFileLocation(lastLocation, &startFile, 0, 0, &startOffset);
+          clang_getFileLocation(location, &endFile, 0, 0, &endOffset);
+          if(startFile != endFile || startOffset > endOffset)
+            lastLocation = clang_getLocationForOffset(tu, endFile, 0);
+          CXSourceRange range = clang_getRange(lastLocation, location);
+          CXToken* tokens;
+          unsigned int tokensCount;
+          clang_tokenize(tu, range, &tokens, &tokensCount);
+
+          String comment;
+          for(unsigned int i = tokensCount; i > 0; --i)
+            if(clang_getTokenKind(tokens[i - 1]) == CXToken_Comment)
+            {
+              CXString spell = clang_getTokenSpelling(tu, tokens[i - 1]);
+              if(String::compare(clang_getCString(spell), "/**", 3) == 0)
+                comment  = String::fromCString(clang_getCString(spell));
+              clang_disposeString(spell);
+              break;
+            }
+          clang_disposeTokens(tu, tokens, tokensCount);
+
           MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
           metaTypeDecl.name = name;
           metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
+          metaTypeDecl.comment = comment;
           break;
         }
       }
@@ -203,6 +240,8 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
   default:
     break;
   }
+
+  context.lastLocation = location;
 
   // visit children recursively
   clang_visitChildren(cursor, visitChildrenCallback, &context);

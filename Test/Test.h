@@ -1,3 +1,9 @@
+
+/** some comment for Class1 */
+class Class1
+{
+};
+
 /*
 void _invalid_parameter_noinfoxx_test(int a);
 
@@ -31,15 +37,18 @@ struct A
 } a;
 */
 
+
+
 namespace X
 {
 namespace Test
 {
-  class Class1
+  class Class2
   {
   };
 
-  class Class2 : public Class1
+  /** some comment for Class3 */
+  class Class3 : public Class2
   {
   };
 

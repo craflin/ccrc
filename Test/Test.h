@@ -4,11 +4,11 @@ class Class1
 {
 };
 
-/*
+
 void _invalid_parameter_noinfoxx_test(int a);
 
 void __cdecl _invalid_parameter_noinfoxx(int a);
-*/
+
 /*
 namespace Test
 {
@@ -50,6 +50,7 @@ namespace Test
   /** some comment for Class3 */
   class Class3 : public Class2
   {
+    void func1(int);
   };
 
   struct Struct1
@@ -58,6 +59,11 @@ namespace Test
 
   template <class A, unsigned U> class TemplateClass1
   {
+  };
+
+  class Class4
+  {
+    TemplateClass1<Class2, 3> func2(int a);
   };
   
   enum Enum1

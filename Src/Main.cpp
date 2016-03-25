@@ -11,6 +11,52 @@ void_t usage(char_t* argv[])
   Console::errorf("Usage: %s <header> <source> -o <output>\n", argv[0]);
 }
 
+class MethodDecl
+{
+public:
+  struct Param
+  {
+    String type;
+    String name;
+  };
+
+public:
+  String name;
+  String returnType;
+  List<Param> params;
+
+public:
+  void_t addParam(const String& name, const String& typeName)
+  {
+    Param& param = params.append(Param());
+    param.name = name;
+    param.type = typeName;
+  }
+
+  void_t print()
+  {
+    String printName;
+    printName.append(returnType);
+    printName.append(' ');
+    printName.append(name);
+    printName.append('(');
+    for(List<Param>::Iterator i = params.begin(), end = params.end();;)
+    {
+      printName.append(i->type);
+      if(!i->name.isEmpty())
+      {
+        printName.append(' ');
+        printName.append(i->name);
+      }
+      if(++i == end)
+        break;
+      printName.append(", ");
+    }
+    printName.append(')');
+    Console::printf("  %s\n", (const tchar_t*)printName);
+  }
+};
+
 class MetaTypeDecl
 {
 public:
@@ -27,10 +73,18 @@ public:
   Type type;
   HashMap<String, String> templateParams;
   List<String> baseTypes;
+  List<MethodDecl> methods;
 
 public:
   void_t addTemplateParam(const String& paramName, const String& typeName) {templateParams.append(paramName, typeName);}
   void_t addBaseType(const String& type) {baseTypes.append(type);}
+  void_t addMethodDecl(const String& name, const String& returnType)
+  {
+    MethodDecl& method = methods.append(MethodDecl());
+    method.name = name;
+    method.returnType = returnType;
+  }
+  MethodDecl* getLastMethodDecl() {return methods.isEmpty() ? 0 : &methods.back();}
 
   void_t print()
   {
@@ -57,7 +111,7 @@ public:
     if(!templateParams.isEmpty())
     {
       printName.append('<');
-      for(HashMap<String, String>::Iterator i = templateParams.begin(), end = templateParams.end(); i != end;)
+      for(HashMap<String, String>::Iterator i = templateParams.begin(), end = templateParams.end();;)
       {
         printName.append(i.key());
         if(++i == end)
@@ -69,7 +123,7 @@ public:
     if(!baseTypes.isEmpty())
     {
       printName.append(" : ");
-      for(List<String>::Iterator i = baseTypes.begin(), end = baseTypes.end(); i != end;)
+      for(List<String>::Iterator i = baseTypes.begin(), end = baseTypes.end();;)
       {
         printName.append(*i);
         if(++i == end)
@@ -78,6 +132,8 @@ public:
       }
     }
     Console::printf("%s\n", (const tchar_t*)printName);
+    for(List<MethodDecl>::Iterator i = methods.begin(), end = methods.end(); i != end; ++i)
+      i->print();
   }
 };
 
@@ -92,10 +148,7 @@ public:
     return *it;
   }
 
-  MetaTypeDecl& getLastMetaTypeDecl()
-  {
-    return declarations.back();
-  }
+  MetaTypeDecl* getLastMetaTypeDecl() {return declarations.isEmpty() ? 0 : &declarations.back();}
 
   void_t print()
   {
@@ -114,6 +167,25 @@ public:
 
   CXSourceLocation lastLocation;
 };
+
+String extractReturnType(const char* functionType)
+{
+  const char* p = String::findOneOf(functionType, " <");
+  if(!p)
+    return String();
+  if(*p == ' ')
+    return String::fromCString(functionType, p - functionType);
+  for(size_t depth = 1;;)
+  {
+    p = String::findOneOf(p + 1, "<>");
+    if(*p == '<')
+      ++depth;
+    else if(depth == 1)
+      return String::fromCString(functionType, p + 1 - functionType);
+    else
+      --depth;
+  }
+}
 
 CXChildVisitResult visitChildrenCallback(CXCursor cursor,
                                          CXCursor parent,
@@ -136,12 +208,15 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
   {
   case CXCursor_CXXBaseSpecifier:
     {
-      CXType type = clang_getCursorType(cursor);
-      CXString typeName = clang_getTypeSpelling(type);
-      String name = String::fromCString(clang_getCString(typeName));
-      clang_disposeString(typeName);
-      MetaTypeDecl& metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
-      metaTypeDecl.addBaseType(name);
+      MetaTypeDecl* metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+      if(metaTypeDecl)
+      {
+        CXType type = clang_getCursorType(cursor);
+        CXString typeName = clang_getTypeSpelling(type);
+        String name = String::fromCString(clang_getCString(typeName));
+        clang_disposeString(typeName);
+        metaTypeDecl->addBaseType(name);
+      }
       break;
     }
   case CXCursor_ClassTemplate:
@@ -220,24 +295,68 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
       }
       break;
     }
+  case CXCursor_CXXMethod:
+    {
+      MetaTypeDecl* metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+      if(metaTypeDecl)
+      {
+        CXType type = clang_getCursorType(cursor);
+        CXString spelling = clang_getCursorSpelling(cursor);
+        CXString typeSpelling = clang_getTypeSpelling(type);
+        //Console::printf("%s - %s\n", (const tchar_t*)extractReturnType(clang_getCString(typeSpelling)), clang_getCString(spelling));
+        metaTypeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), extractReturnType(clang_getCString(typeSpelling)));
+        clang_disposeString(typeSpelling);
+        clang_disposeString(spelling);
+      }
+    }
+    break;
   case CXCursor_TemplateTypeParameter:
   case CXCursor_NonTypeTemplateParameter:
   case CXCursor_TemplateTemplateParameter:
     if(parent.kind == CXCursor_ClassTemplate)
     {
-      MetaTypeDecl& metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
-      CXType type = clang_getCursorType(cursor);
-      CXString typeSpelling = clang_getTypeSpelling(type);
-      CXString paramSpelling = clang_getCursorSpelling(cursor);
-      String typeName = String::fromCString(clang_getCString(typeSpelling));
-      String paramName = String::fromCString(clang_getCString(paramSpelling));
-      //Console::printf("%s - %s\n", (const tchar_t*)typeName, (const tchar_t*)paramName);
-      clang_disposeString(typeSpelling);
-      clang_disposeString(paramSpelling);
-      metaTypeDecl.addTemplateParam(paramName, typeName);
+      MetaTypeDecl* metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+      if(metaTypeDecl)
+      {
+        CXType type = clang_getCursorType(cursor);
+        CXString typeSpelling = clang_getTypeSpelling(type);
+        CXString paramSpelling = clang_getCursorSpelling(cursor);
+        String typeName = String::fromCString(clang_getCString(typeSpelling));
+        String paramName = String::fromCString(clang_getCString(paramSpelling));
+        //Console::printf("%s - %s\n", (const tchar_t*)typeName, (const tchar_t*)paramName);
+        clang_disposeString(typeSpelling);
+        clang_disposeString(paramSpelling);
+        metaTypeDecl->addTemplateParam(paramName, typeName);
+      }
     }
     break;
+  case CXCursor_ParmDecl:
+    {
+      MetaTypeDecl* metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+      if(metaTypeDecl)
+      {
+        MethodDecl* methodDecl = metaTypeDecl->getLastMethodDecl();
+        if(methodDecl)
+        {
+          CXType type = clang_getCursorType(cursor);
+          CXString typeSpelling = clang_getTypeSpelling(type);
+          CXString paramSpelling = clang_getCursorSpelling(cursor);
+          methodDecl->addParam(String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling)));
+          clang_disposeString(typeSpelling);
+          clang_disposeString(paramSpelling);
+        }
+      }
+      break;
+    }
   default:
+    //{
+    //  CXString spelling = clang_getCursorSpelling(cursor);
+    //  if(String::fromCString(clang_getCString(spelling)) == "param1")
+    //  {
+    //    int k = 32;
+    //  }
+    //  clang_disposeString(spelling);
+    //}
     break;
   }
 

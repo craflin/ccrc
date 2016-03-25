@@ -122,24 +122,23 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
   //show_included_file(cursor);
   //Console::printf("\n");
 
-  CXCursorKind curKind  = clang_getCursorKind(cursor);
-  if(curKind == CXCursor_CXXBaseSpecifier)
+  switch(cursor.kind)
   {
-    CXType type = clang_getCursorType(cursor);
-    CXString typeName = clang_getTypeSpelling(type);
-    String name = String::fromCString(clang_getCString(typeName));
-    clang_disposeString(typeName);
-    MetaTypeDecl& metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
-    metaTypeDecl.addBaseType(name);
-  }
-  else if(clang_isDeclaration(curKind))
-  {
-    if(curKind == CXCursor_ClassTemplate)
+  case CXCursor_CXXBaseSpecifier:
+    {
+      CXType type = clang_getCursorType(cursor);
+      CXString typeName = clang_getTypeSpelling(type);
+      String name = String::fromCString(clang_getCString(typeName));
+      clang_disposeString(typeName);
+      MetaTypeDecl& metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+      metaTypeDecl.addBaseType(name);
+      break;
+    }
+  case CXCursor_ClassTemplate:
     {
       CXCursorKind curKind = clang_getTemplateCursorKind(cursor);
       if(clang_isDeclaration(curKind))
       {
-        
         CXString spell = clang_getCursorSpelling(cursor);
         String name = String::fromCString(clang_getCString(spell));
         clang_disposeString(spell);
@@ -158,8 +157,36 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
         metaTypeDecl.name = name;
         metaTypeDecl.type = MetaTypeDecl::classType;
       }
+      break;
     }
-    else if(parent.kind == CXCursor_ClassTemplate)
+  case CXCursor_ClassDecl:
+  case CXCursor_EnumDecl:
+  case CXCursor_StructDecl:
+    {
+      CXType type = clang_getCursorType(cursor);
+      switch(type.kind)
+      {
+      case CXType_Invalid:
+      case CXType_Unexposed:
+        break;
+      default:
+        {
+          CXString typeName = clang_getTypeSpelling(type);
+          String name = String::fromCString(clang_getCString(typeName));
+          //Console::printf("%s\n", (const tchar_t*)name);
+          clang_disposeString(typeName);
+          MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
+          metaTypeDecl.name = name;
+          metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
+          break;
+        }
+      }
+      break;
+    }
+  case CXCursor_TemplateTypeParameter:
+  case CXCursor_NonTypeTemplateParameter:
+  case CXCursor_TemplateTemplateParameter:
+    if(parent.kind == CXCursor_ClassTemplate)
     {
       MetaTypeDecl& metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
       CXType type = clang_getCursorType(cursor);
@@ -172,28 +199,9 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
       clang_disposeString(paramSpelling);
       metaTypeDecl.addTemplateParam(paramName, typeName);
     }
-    else
-    {
-      CXType type = clang_getCursorType(cursor);
-      switch(type.kind)
-      {
-      case CXType_Invalid:
-      case CXType_Unexposed:
-        break;
-      default:
-        if(curKind == CXCursor_ClassDecl || curKind == CXCursor_EnumDecl || curKind == CXCursor_StructDecl)
-        {
-          CXString typeName = clang_getTypeSpelling(type);
-          String name = String::fromCString(clang_getCString(typeName));
-          //Console::printf("%s\n", (const tchar_t*)name);
-          clang_disposeString(typeName);
-          MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
-          metaTypeDecl.name = name;
-          metaTypeDecl.type = curKind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (curKind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
-          break;
-        }
-      }
-    }
+    break;
+  default:
+    break;
   }
 
   // visit children recursively

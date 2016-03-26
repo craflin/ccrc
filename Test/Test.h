@@ -50,6 +50,9 @@ namespace Test
   /** some comment for Class3 */
   class Class3 : public Class2
   {
+    /** some in class comment */
+  
+    /** some comment for func1 */
     void func1(int);
   };
 

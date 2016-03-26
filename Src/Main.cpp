@@ -23,7 +23,7 @@ public:
 public:
   String name;
   String comment;
-  String returnType;
+  String type;
   List<Param> params;
 
 public:
@@ -36,8 +36,10 @@ public:
 
   void_t print()
   {
+    if(!comment.isEmpty())
+      Console::printf("  %s\n", (const tchar_t*)comment);
     String printName;
-    printName.append(returnType);
+    printName.append(getReturnType());
     printName.append(' ');
     printName.append(name);
     printName.append('(');
@@ -55,6 +57,26 @@ public:
     }
     printName.append(')');
     Console::printf("  %s\n", (const tchar_t*)printName);
+  }
+
+  String getReturnType() const
+  {
+    const char* functionType = type;
+    const char* p = String::findOneOf(functionType, " <");
+    if(!p)
+      return String();
+    if(*p == ' ')
+      return String::fromCString(functionType, p - functionType);
+    for(size_t depth = 1;;)
+    {
+      p = String::findOneOf(p + 1, "<>");
+      if(*p == '<')
+        ++depth;
+      else if(depth == 1)
+        return String::fromCString(functionType, p + 1 - functionType);
+      else
+        --depth;
+    }
   }
 };
 
@@ -80,23 +102,20 @@ public:
 public:
   void_t addTemplateParam(const String& paramName, const String& typeName) {templateParams.append(paramName, typeName);}
   void_t addBaseType(const String& type) {baseTypes.append(type);}
-  void_t addMethodDecl(const String& name, const String& returnType)
+  void_t addMethodDecl(const String& name, const String& type)
   {
     MethodDecl& method = methods.append(MethodDecl());
     method.name = name;
-    method.returnType = returnType;
+    method.type = type;
   }
   MethodDecl* getLastMethodDecl() {return methods.isEmpty() ? 0 : &methods.back();}
   void_t addInnerComment(const String& comment) {innerComments.append(comment);}
 
   void_t print()
   {
-    String printName;
     if(!comment.isEmpty())
-    {
-      printName.append(comment);
-      printName.append('\n');
-    }
+      Console::printf("%s\n", (const tchar_t*)comment);
+    String printName;
     switch(type)
     {
     case enumType:
@@ -137,6 +156,8 @@ public:
     Console::printf("%s\n", (const tchar_t*)printName);
     for(List<MethodDecl>::Iterator i = methods.begin(), end = methods.end(); i != end; ++i)
       i->print();
+    for(List<String>::Iterator i = innerComments.begin(), end = innerComments.end(); i != end; ++i)
+      Console::printf("  %s\n", (const tchar_t*)*i);
   }
 };
 
@@ -170,25 +191,6 @@ public:
 
   CXSourceLocation lastLocation;
 };
-
-String extractReturnType(const char* functionType)
-{
-  const char* p = String::findOneOf(functionType, " <");
-  if(!p)
-    return String();
-  if(*p == ' ')
-    return String::fromCString(functionType, p - functionType);
-  for(size_t depth = 1;;)
-  {
-    p = String::findOneOf(p + 1, "<>");
-    if(*p == '<')
-      ++depth;
-    else if(depth == 1)
-      return String::fromCString(functionType, p + 1 - functionType);
-    else
-      --depth;
-  }
-}
 
 CXChildVisitResult visitChildrenCallback(CXCursor cursor,
                                          CXCursor parent,
@@ -273,7 +275,6 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
           MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
           metaTypeDecl.name = name;
           metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
-          //metaTypeDecl.comment = comment;
           action = classAction;
 
           CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
@@ -281,13 +282,38 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
           CXToken* tokens;
           unsigned int tokensCount;
           clang_tokenize(tu, classRange, &tokens, &tokensCount);
+          int depth = 0;
           for(unsigned int i = 0; i < tokensCount; ++i)
-            if(clang_getTokenKind(tokens[i]) == CXToken_Comment)
-            {// todo: skip blocks!
-              CXString spell = clang_getTokenSpelling(tu, tokens[i]);
-              metaTypeDecl.addInnerComment(String::fromCString(clang_getCString(spell)));
-              clang_disposeString(spell);
+          {
+            CXToken& token = tokens[i];
+            switch(clang_getTokenKind(token))
+            {
+            case CXToken_Comment:
+              {
+                if(depth == 1)
+                {
+                  CXString spell = clang_getTokenSpelling(tu, tokens[i]);
+                  if(String::compare(clang_getCString(spell), "/**", 3) == 0)
+                    metaTypeDecl.addInnerComment(String::fromCString(clang_getCString(spell)));
+                  clang_disposeString(spell);
+                }
+                break;
+              }
+            case CXToken_Punctuation:
+              {
+                CXString spell = clang_getTokenSpelling(tu, tokens[i]);
+                const char* tokenCStr = clang_getCString(spell);
+                if(String::compare(tokenCStr, "{") == 0)
+                  ++depth;
+                else if(String::compare(tokenCStr, "}") == 0)
+                  --depth;
+                clang_disposeString(spell);
+                break;
+              }
+            default:
+              break;
             }
+          }
           clang_disposeTokens(tu, tokens, tokensCount);
 
           break;
@@ -304,7 +330,7 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
         CXString spelling = clang_getCursorSpelling(cursor);
         CXString typeSpelling = clang_getTypeSpelling(type);
         //Console::printf("%s - %s\n", (const tchar_t*)extractReturnType(clang_getCString(typeSpelling)), clang_getCString(spelling));
-        metaTypeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), extractReturnType(clang_getCString(typeSpelling)));
+        metaTypeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), String::fromCString(clang_getCString(typeSpelling)));
         clang_disposeString(typeSpelling);
         clang_disposeString(spelling);
         action = methodAction;
@@ -453,17 +479,19 @@ int_t main(int_t argc, char_t* argv[])
   if(headerFile.isEmpty() || sourceFile.isEmpty() || outputFile.isEmpty())
     return usage(argv), 1;
 
-  CXIndex index = clang_createIndex(1, 1);
-  CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile, 0, 0, 0, 0); //clang_createTranslationUnit(index, sourceFile);
 
 
   VisitorContext context;
-  CXCursor cursor = clang_getTranslationUnitCursor(tu);
-  context.lastLocation = clang_getCursorLocation(cursor);
-  clang_visitChildren(cursor, visitChildrenCallback, &context);
+  {
+    CXIndex index = clang_createIndex(1, 1);
+    CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile, 0, 0, 0, 0); //clang_createTranslationUnit(index, sourceFile);
+    CXCursor cursor = clang_getTranslationUnitCursor(tu);
+    context.lastLocation = clang_getCursorLocation(cursor);
+    clang_visitChildren(cursor, visitChildrenCallback, &context);
 
-  clang_disposeTranslationUnit(tu);
-  clang_disposeIndex(index);
+    clang_disposeTranslationUnit(tu);
+    clang_disposeIndex(index);
+  }
 
   context.metaInfoData.print();
 

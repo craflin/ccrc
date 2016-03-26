@@ -22,6 +22,7 @@ public:
 
 public:
   String name;
+  String comment;
   String returnType;
   List<Param> params;
 
@@ -74,6 +75,7 @@ public:
   HashMap<String, String> templateParams;
   List<String> baseTypes;
   List<MethodDecl> methods;
+  List<String> innerComments;
 
 public:
   void_t addTemplateParam(const String& paramName, const String& typeName) {templateParams.append(paramName, typeName);}
@@ -85,6 +87,7 @@ public:
     method.returnType = returnType;
   }
   MethodDecl* getLastMethodDecl() {return methods.isEmpty() ? 0 : &methods.back();}
+  void_t addInnerComment(const String& comment) {innerComments.append(comment);}
 
   void_t print()
   {
@@ -192,8 +195,6 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
                                          CXClientData client_data) {
   VisitorContext& context = *(VisitorContext*)client_data;
 
-  CXSourceLocation location = clang_getCursorLocation(cursor);
-
   //show_spell(cursor);
   //show_linkage(cursor);
   //show_cursor_kind(cursor);
@@ -203,6 +204,13 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
   //show_usr(cursor);
   //show_included_file(cursor);
   //Console::printf("\n");
+
+  enum Action
+  {
+    noAction,
+    classAction,
+    methodAction,
+  } action = noAction;
 
   switch(cursor.kind)
   {
@@ -241,6 +249,7 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
         MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
         metaTypeDecl.name = name;
         metaTypeDecl.type = MetaTypeDecl::classType;
+        action = classAction;
       }
       break;
     }
@@ -260,36 +269,27 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
           String name = String::fromCString(clang_getCString(typeName));
           //Console::printf("%s\n", (const tchar_t*)name);
           clang_disposeString(typeName);
-          
-          CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
-          CXSourceLocation lastLocation = context.lastLocation;
-          CXFile startFile, endFile;
-          unsigned int startOffset, endOffset;
-          clang_getFileLocation(lastLocation, &startFile, 0, 0, &startOffset);
-          clang_getFileLocation(location, &endFile, 0, 0, &endOffset);
-          if(startFile != endFile || startOffset > endOffset)
-            lastLocation = clang_getLocationForOffset(tu, endFile, 0);
-          CXSourceRange range = clang_getRange(lastLocation, location);
-          CXToken* tokens;
-          unsigned int tokensCount;
-          clang_tokenize(tu, range, &tokens, &tokensCount);
-
-          String comment;
-          for(unsigned int i = tokensCount; i > 0; --i)
-            if(clang_getTokenKind(tokens[i - 1]) == CXToken_Comment)
-            {
-              CXString spell = clang_getTokenSpelling(tu, tokens[i - 1]);
-              if(String::compare(clang_getCString(spell), "/**", 3) == 0)
-                comment  = String::fromCString(clang_getCString(spell));
-              clang_disposeString(spell);
-              break;
-            }
-          clang_disposeTokens(tu, tokens, tokensCount);
 
           MetaTypeDecl& metaTypeDecl = context.metaInfoData.getMetaTypeDecl(name);
           metaTypeDecl.name = name;
           metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
-          metaTypeDecl.comment = comment;
+          //metaTypeDecl.comment = comment;
+          action = classAction;
+
+          CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
+          CXSourceRange classRange = clang_getCursorExtent(cursor);
+          CXToken* tokens;
+          unsigned int tokensCount;
+          clang_tokenize(tu, classRange, &tokens, &tokensCount);
+          for(unsigned int i = 0; i < tokensCount; ++i)
+            if(clang_getTokenKind(tokens[i]) == CXToken_Comment)
+            {// todo: skip blocks!
+              CXString spell = clang_getTokenSpelling(tu, tokens[i]);
+              metaTypeDecl.addInnerComment(String::fromCString(clang_getCString(spell)));
+              clang_disposeString(spell);
+            }
+          clang_disposeTokens(tu, tokens, tokensCount);
+
           break;
         }
       }
@@ -307,6 +307,7 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
         metaTypeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), extractReturnType(clang_getCString(typeSpelling)));
         clang_disposeString(typeSpelling);
         clang_disposeString(spelling);
+        action = methodAction;
       }
     }
     break;
@@ -360,6 +361,49 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
     break;
   }
 
+  CXSourceRange cursorRange = clang_getCursorExtent(cursor);
+  CXSourceLocation location = clang_getRangeStart(cursorRange);
+  if(action != noAction)
+  {
+    CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
+    CXFile startFile, endFile;
+    unsigned int startOffset, endOffset;
+    clang_getFileLocation(context.lastLocation, &startFile, 0, 0, &startOffset);
+    clang_getFileLocation(location, &endFile, 0, 0, &endOffset);
+    if(startFile != endFile || startOffset > endOffset)
+      context.lastLocation = clang_getLocationForOffset(tu, endFile, 0);
+    CXSourceRange range = clang_getRange(context.lastLocation, location);
+    CXToken* tokens;
+    unsigned int tokensCount;
+    clang_tokenize(tu, range, &tokens, &tokensCount);
+
+    String comment;
+    for(unsigned int i = tokensCount; i > 0; --i)
+      if(clang_getTokenKind(tokens[i - 1]) == CXToken_Comment)
+      {
+        CXString spell = clang_getTokenSpelling(tu, tokens[i - 1]);
+        if(String::compare(clang_getCString(spell), "/**", 3) == 0)
+          comment  = String::fromCString(clang_getCString(spell));
+        clang_disposeString(spell);
+        break;
+      }
+    clang_disposeTokens(tu, tokens, tokensCount);
+
+    if(!comment.isEmpty())
+    {
+      switch(action)
+      {
+      case classAction:
+        context.metaInfoData.getLastMetaTypeDecl()->comment = comment;
+        break;
+      case methodAction:
+        context.metaInfoData.getLastMetaTypeDecl()->getLastMethodDecl()->comment = comment;
+        break;
+      default:
+        break;
+      }
+    }
+  }
   context.lastLocation = location;
 
   // visit children recursively
@@ -415,6 +459,7 @@ int_t main(int_t argc, char_t* argv[])
 
   VisitorContext context;
   CXCursor cursor = clang_getTranslationUnitCursor(tu);
+  context.lastLocation = clang_getCursorLocation(cursor);
   clang_visitChildren(cursor, visitChildrenCallback, &context);
 
   clang_disposeTranslationUnit(tu);

@@ -62,6 +62,9 @@ namespace Test
 
   template <class A, unsigned U> class TemplateClass1
   {
+    template <class Z> class SubTemplateClass1
+    {
+    };
   };
 
   class Class4

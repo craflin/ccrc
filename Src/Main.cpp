@@ -3,6 +3,7 @@
 #include <nstd/Process.h>
 #include <nstd/HashMap.h>
 #include <nstd/List.h>
+#include <nstd/File.h>
 
 #include <clang-c/Index.h>
 
@@ -80,6 +81,8 @@ public:
   }
 };
 
+class MetaInfoData;
+
 class MetaTypeDecl
 {
 public:
@@ -93,6 +96,7 @@ public:
 public:
   String name;
   String comment;
+  String file;
   Type type;
   HashMap<String, String> templateParams;
   List<String> baseTypes;
@@ -110,6 +114,20 @@ public:
   }
   MethodDecl* getLastMethodDecl() {return methods.isEmpty() ? 0 : &methods.back();}
   void_t addInnerComment(const String& comment) {innerComments.append(comment);}
+
+  bool_t isReflected(const MetaInfoData& metaInfo) const
+  {
+    if(name == "Reflected")
+      return true;
+    //for(List<String>::Iterator i = baseTypes.begin(), end = baseTypes.end(); i != end; ++i)
+    //{
+    //  HashMap<String, MetaTypeDecl>::Iterator it = metaInfo.declarations.find(*i);
+    //  if(it == metaInfo.declarations.end())
+    //    continue;
+    //
+    //}
+    return false;
+  }
 
   void_t print()
   {
@@ -180,7 +198,7 @@ public:
       i->print();
   }
 
-private:
+public:
   HashMap<String, MetaTypeDecl> declarations;
 };
 
@@ -276,46 +294,6 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
           metaTypeDecl.name = name;
           metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
           action = classAction;
-
-          CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
-          CXSourceRange classRange = clang_getCursorExtent(cursor);
-          CXToken* tokens;
-          unsigned int tokensCount;
-          clang_tokenize(tu, classRange, &tokens, &tokensCount);
-          int depth = 0;
-          for(unsigned int i = 0; i < tokensCount; ++i)
-          {
-            CXToken& token = tokens[i];
-            switch(clang_getTokenKind(token))
-            {
-            case CXToken_Comment:
-              {
-                if(depth == 1)
-                {
-                  CXString spell = clang_getTokenSpelling(tu, tokens[i]);
-                  if(String::compare(clang_getCString(spell), "/**", 3) == 0)
-                    metaTypeDecl.addInnerComment(String::fromCString(clang_getCString(spell)));
-                  clang_disposeString(spell);
-                }
-                break;
-              }
-            case CXToken_Punctuation:
-              {
-                CXString spell = clang_getTokenSpelling(tu, tokens[i]);
-                const char* tokenCStr = clang_getCString(spell);
-                if(String::compare(tokenCStr, "{") == 0)
-                  ++depth;
-                else if(String::compare(tokenCStr, "}") == 0)
-                  --depth;
-                clang_disposeString(spell);
-                break;
-              }
-            default:
-              break;
-            }
-          }
-          clang_disposeTokens(tu, tokens, tokensCount);
-
           break;
         }
       }
@@ -387,6 +365,49 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
     break;
   }
 
+  if(action == classAction)
+  {
+    MetaTypeDecl* metaTypeDecl = context.metaInfoData.getLastMetaTypeDecl();
+    CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
+    CXSourceRange classRange = clang_getCursorExtent(cursor);
+    CXToken* tokens;
+    unsigned int tokensCount;
+    clang_tokenize(tu, classRange, &tokens, &tokensCount);
+    int depth = 0;
+    for(unsigned int i = 0; i < tokensCount; ++i)
+    {
+      CXToken& token = tokens[i];
+      switch(clang_getTokenKind(token))
+      {
+      case CXToken_Comment:
+        {
+          if(depth == 1)
+          {
+            CXString spell = clang_getTokenSpelling(tu, tokens[i]);
+            if(String::compare(clang_getCString(spell), "/**", 3) == 0)
+              metaTypeDecl->addInnerComment(String::fromCString(clang_getCString(spell)));
+            clang_disposeString(spell);
+          }
+          break;
+        }
+      case CXToken_Punctuation:
+        {
+          CXString spell = clang_getTokenSpelling(tu, tokens[i]);
+          const char* tokenCStr = clang_getCString(spell);
+          if(String::compare(tokenCStr, "{") == 0)
+            ++depth;
+          else if(String::compare(tokenCStr, "}") == 0)
+            --depth;
+          clang_disposeString(spell);
+          break;
+        }
+      default:
+        break;
+      }
+    }
+    clang_disposeTokens(tu, tokens, tokensCount);
+  }
+
   CXSourceRange cursorRange = clang_getCursorExtent(cursor);
   CXSourceLocation location = clang_getRangeStart(cursorRange);
   if(action != noAction)
@@ -415,6 +436,13 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
       }
     clang_disposeTokens(tu, tokens, tokensCount);
 
+    if(action == classAction)
+    {
+      CXString filename = clang_getFileName(endFile);
+      context.metaInfoData.getLastMetaTypeDecl()->file = String::fromCString(clang_getCString(filename));
+      clang_disposeString(filename);
+    }
+
     if(!comment.isEmpty())
     {
       switch(action)
@@ -437,6 +465,43 @@ CXChildVisitResult visitChildrenCallback(CXCursor cursor,
 
   return CXChildVisit_Continue;
 }
+
+class Generator
+{
+public:
+  bool_t generate(const String& outputFile, const String& headerFile, const MetaInfoData& metaInfoData)
+  {
+    if(!file.open(outputFile, File::writeFlag))
+      return false;
+
+    write();
+    write(String("#include <Meta.h>"));
+    write();
+    write(String("#include \"") + headerFile + "\"");
+    write();
+
+    for(HashMap<String, MetaTypeDecl>::Iterator i = metaInfoData.declarations.begin(), end = metaInfoData.declarations.end(); i != end; ++i)
+    {
+      const MetaTypeDecl& type = *i;
+      if(type.file == headerFile && type.isReflected(metaInfoData))
+      {
+        write(String("const Meta::Type& ") + type.name + "::getMetaType() const");
+        write("{");
+        write("}");
+        write();
+      }
+    }
+
+    return true;
+  }
+
+private:
+  File file;
+
+private:
+  void_t write(const String& str) {file.write(str + "\n"); }
+  void_t write() {file.write("\n"); }
+};
 
 int_t main(int_t argc, char_t* argv[])
 {
@@ -476,7 +541,7 @@ int_t main(int_t argc, char_t* argv[])
       }
   }
 
-  if(headerFile.isEmpty() || sourceFile.isEmpty() || outputFile.isEmpty())
+  if(headerFile.isEmpty() || outputFile.isEmpty())
     return usage(argv), 1;
 
 
@@ -484,7 +549,7 @@ int_t main(int_t argc, char_t* argv[])
   VisitorContext context;
   {
     CXIndex index = clang_createIndex(1, 1);
-    CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile, 0, 0, 0, 0); //clang_createTranslationUnit(index, sourceFile);
+    CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile.isEmpty() ? (const char*)headerFile : (const char*)sourceFile, 0, 0, 0, 0); //clang_createTranslationUnit(index, sourceFile);
     CXCursor cursor = clang_getTranslationUnitCursor(tu);
     context.lastLocation = clang_getCursorLocation(cursor);
     clang_visitChildren(cursor, visitChildrenCallback, &context);
@@ -494,6 +559,10 @@ int_t main(int_t argc, char_t* argv[])
   }
 
   context.metaInfoData.print();
+
+  Generator generator;
+  if(!generator.generate(outputFile, headerFile, context.metaInfoData))
+    return 1;
 
   /*
 

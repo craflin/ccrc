@@ -43,7 +43,7 @@ namespace X
 {
 namespace Test
 {
-  class Class2
+  class Class2 : public Reflected
   {
   };
 

@@ -1,21 +1,60 @@
 
 #include <clang-c/Index.h>
 
+#include <nstd/Array.h>
+
 #include "Parser.h"
 
 class Parser::Private
 {
 public:
-  MetaInfoData& metaInfoData;
-  CXSourceLocation lastLocation;
+  class Cursor
+  {
+  public:
+    Cursor() : cursor(clang_getNullCursor()) {}
+    Cursor(const CXCursor& cursor) : cursor(cursor) {}
+    operator size_t() const
+    {
+      size_t hashCode = cursor.kind;
+      hashCode *= 16807;
+      hashCode ^= cursor.xdata;
+      for(size_t i = 0; i < sizeof(cursor.data) / sizeof(*cursor.data); ++i)
+      {
+        hashCode *= 16807;
+        hashCode ^= (size_t)cursor.data[i];
+      }
+      return hashCode;
+    }
+    bool operator==(const Cursor& other) const
+    {
+      if(clang_equalCursors(cursor, other.cursor))
+        return true;
+      return false;
+    }
+  private:
+    CXCursor cursor;
+  };
 
 public:
-  Private(MetaInfoData& metaInfoData) : metaInfoData(metaInfoData) {}
+  ParserData& data;
+  CXSourceLocation lastLocation;
+  HashMap<Cursor, ParserData::TypeDecl*> typesByCursor;
+  HashMap<Cursor, ParserData::TypeDecl::MethodDecl*> methodsByCursor;
 
-  bool_t parse(const String& sourceFile, const String& headerFile)
+public:
+  Private(ParserData& data) : data(data) {}
+
+  bool_t parse(const String& sourceFile, const String& headerFile, const List<String>& additionalArgs)
   {
+    data.headerFile = headerFile;
+
+    Array<const char*> args(additionalArgs.size());
+    for(List<String>::Iterator i = additionalArgs.begin(), end = additionalArgs.end(); i != end; ++i)
+      args.append(*i);
+
     CXIndex index = clang_createIndex(1, 1);
-    CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile.isEmpty() ? (const char*)headerFile : (const char*)sourceFile, 0, 0, 0, 0); //clang_createTranslationUnit(index, sourceFile);
+    CXTranslationUnit tu = clang_createTranslationUnitFromSourceFile(index, sourceFile.isEmpty() ? (const char*)headerFile : (const char*)sourceFile, 
+      (int)args.size(), args, 0, 0); //clang_createTranslationUnit(index, sourceFile);
     CXCursor cursor = clang_getTranslationUnitCursor(tu);
     lastLocation = clang_getCursorLocation(cursor);
     clang_visitChildren(cursor, visitChildrenCallback, this);
@@ -30,16 +69,6 @@ public:
   {
     Private& parser = *(Private*)client_data;
 
-    //show_spell(cursor);
-    //show_linkage(cursor);
-    //show_cursor_kind(cursor);
-    //show_type(cursor);
-    //show_parent(cursor, parent);
-    //show_location(cursor);
-    //show_usr(cursor);
-    //show_included_file(cursor);
-    //Console::printf("\n");
-
     enum Action
     {
       noAction,
@@ -51,14 +80,14 @@ public:
     {
     case CXCursor_CXXBaseSpecifier:
       {
-        MetaTypeDecl* metaTypeDecl = parser.metaInfoData.getLastMetaTypeDecl();
-        if(metaTypeDecl)
+        ParserData::TypeDecl* typeDecl = *parser.typesByCursor.find(parent);
+        if(typeDecl)
         {
           CXType type = clang_getCursorType(cursor);
           CXString typeName = clang_getTypeSpelling(type);
           String name = String::fromCString(clang_getCString(typeName));
           clang_disposeString(typeName);
-          metaTypeDecl->addBaseType(name);
+          typeDecl->addBaseType(name);
         }
         break;
       }
@@ -81,10 +110,11 @@ public:
             parent = clang_getCursorSemanticParent(parent);
           }
           //Console::printf("%s (template)\n", (const tchar_t*)name);
-          MetaTypeDecl& metaTypeDecl = parser.metaInfoData.getMetaTypeDecl(name);
-          metaTypeDecl.name = name;
-          metaTypeDecl.type = MetaTypeDecl::classType;
+          ParserData::TypeDecl& typeDecl = parser.data.getTypeDecl(name);
+          typeDecl.name = name;
+          typeDecl.type = ParserData::TypeDecl::classType;
           action = classAction;
+          parser.typesByCursor.append(cursor, &typeDecl);
         }
         break;
       }
@@ -105,10 +135,11 @@ public:
             //Console::printf("%s\n", (const tchar_t*)name);
             clang_disposeString(typeName);
 
-            MetaTypeDecl& metaTypeDecl = parser.metaInfoData.getMetaTypeDecl(name);
-            metaTypeDecl.name = name;
-            metaTypeDecl.type = cursor.kind == CXCursor_ClassDecl ? MetaTypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? MetaTypeDecl::enumType : MetaTypeDecl::structType);
+            ParserData::TypeDecl& typeDecl = parser.data.getTypeDecl(name);
+            typeDecl.name = name;
+            typeDecl.type = cursor.kind == CXCursor_ClassDecl ? ParserData::TypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? ParserData::TypeDecl::enumType : ParserData::TypeDecl::structType);
             action = classAction;
+            parser.typesByCursor.append(cursor, &typeDecl);
             break;
           }
         }
@@ -116,17 +147,18 @@ public:
       }
     case CXCursor_CXXMethod:
       {
-        MetaTypeDecl* metaTypeDecl = parser.metaInfoData.getLastMetaTypeDecl();
-        if(metaTypeDecl)
+        ParserData::TypeDecl* typeDecl = *parser.typesByCursor.find(parent);
+        if(typeDecl)
         {
           CXType type = clang_getCursorType(cursor);
           CXString spelling = clang_getCursorSpelling(cursor);
           CXString typeSpelling = clang_getTypeSpelling(type);
           //Console::printf("%s - %s\n", (const tchar_t*)extractReturnType(clang_getCString(typeSpelling)), clang_getCString(spelling));
-          metaTypeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), String::fromCString(clang_getCString(typeSpelling)));
+          ParserData::TypeDecl::MethodDecl& method = typeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), String::fromCString(clang_getCString(typeSpelling)));
           clang_disposeString(typeSpelling);
           clang_disposeString(spelling);
           action = methodAction;
+          parser.methodsByCursor.append(cursor, &method);
         }
       }
       break;
@@ -135,8 +167,8 @@ public:
     case CXCursor_TemplateTemplateParameter:
       if(parent.kind == CXCursor_ClassTemplate)
       {
-        MetaTypeDecl* metaTypeDecl = parser.metaInfoData.getLastMetaTypeDecl();
-        if(metaTypeDecl)
+        ParserData::TypeDecl* typeDecl = *parser.typesByCursor.find(parent);
+        if(typeDecl)
         {
           CXType type = clang_getCursorType(cursor);
           CXString typeSpelling = clang_getTypeSpelling(type);
@@ -146,22 +178,22 @@ public:
           //Console::printf("%s - %s\n", (const tchar_t*)typeName, (const tchar_t*)paramName);
           clang_disposeString(typeSpelling);
           clang_disposeString(paramSpelling);
-          metaTypeDecl->addTemplateParam(paramName, typeName);
+          typeDecl->addTemplateParam(paramName, typeName);
         }
       }
       break;
     case CXCursor_ParmDecl:
       {
-        MetaTypeDecl* metaTypeDecl = parser.metaInfoData.getLastMetaTypeDecl();
-        if(metaTypeDecl)
+        ParserData::TypeDecl* typeDecl = *parser.typesByCursor.find(clang_getCursorSemanticParent(parent));
+        if(typeDecl)
         {
-          MetaMethodDecl* methodDecl = metaTypeDecl->getLastMethodDecl();
+          ParserData::TypeDecl::MethodDecl* methodDecl = *parser.methodsByCursor.find(parent);
           if(methodDecl)
           {
             CXType type = clang_getCursorType(cursor);
             CXString typeSpelling = clang_getTypeSpelling(type);
             CXString paramSpelling = clang_getCursorSpelling(cursor);
-            methodDecl->addParam(String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling)));
+            methodDecl->addParameter(String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling)));
             clang_disposeString(typeSpelling);
             clang_disposeString(paramSpelling);
           }
@@ -182,7 +214,7 @@ public:
 
     if(action == classAction)
     {
-      MetaTypeDecl* metaTypeDecl = parser.metaInfoData.getLastMetaTypeDecl();
+      ParserData::TypeDecl* typeDecl = parser.typesByCursor.back();
       CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
       CXSourceRange classRange = clang_getCursorExtent(cursor);
       CXToken* tokens;
@@ -200,7 +232,7 @@ public:
             {
               CXString spell = clang_getTokenSpelling(tu, tokens[i]);
               if(String::compare(clang_getCString(spell), "/**", 3) == 0)
-                metaTypeDecl->addInnerComment(String::fromCString(clang_getCString(spell)));
+                typeDecl->addInnerComment(String::fromCString(clang_getCString(spell)));
               clang_disposeString(spell);
             }
             break;
@@ -254,7 +286,7 @@ public:
       if(action == classAction)
       {
         CXString filename = clang_getFileName(endFile);
-        parser.metaInfoData.getLastMetaTypeDecl()->file = String::fromCString(clang_getCString(filename));
+        parser.typesByCursor.back()->file = String::fromCString(clang_getCString(filename));
         clang_disposeString(filename);
       }
 
@@ -263,10 +295,10 @@ public:
         switch(action)
         {
         case classAction:
-          parser.metaInfoData.getLastMetaTypeDecl()->comment = comment;
+          parser.typesByCursor.back()->comment = comment;
           break;
         case methodAction:
-          parser.metaInfoData.getLastMetaTypeDecl()->getLastMethodDecl()->comment = comment;
+          parser.methodsByCursor.back()->comment = comment;
           break;
         default:
           break;
@@ -282,7 +314,7 @@ public:
   }
 };
 
-Parser::Parser() : p(new Private(metaInfoData)) {}
+Parser::Parser() : p(new Private(data)) {}
 Parser::~Parser() {delete p;}
-bool_t Parser::parse(const String& sourceFile, const String& headerFile) {return p->parse(sourceFile, headerFile);}
+bool_t Parser::parse(const String& sourceFile, const String& headerFile, const List<String>& additionalArgs) {return p->parse(sourceFile, headerFile, additionalArgs);}
 

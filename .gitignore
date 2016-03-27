@@ -5,3 +5,4 @@ Build/
 *.txt
 *.opensdf
 *.suo
+Ext/libclang

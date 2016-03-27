@@ -1,8 +1,10 @@
 
 #include <nstd/Console.h>
 #include <nstd/Process.h>
+#include <nstd/List.h>
 
 #include "Parser.h"
+#include "Reflector.h"
 #include "Generator.h"
 
 void_t usage(char_t* argv[])
@@ -15,10 +17,12 @@ int_t main(int_t argc, char_t* argv[])
   String headerFile;
   String sourceFile;
   String outputFile;
+  List<String> additionalArgs;
   {
     Process::Option options[] = {
         {'o', "output", Process::argumentFlag},
         {'h', "help", Process::optionFlag},
+        {'I', 0, Process::argumentFlag},
     };
     Process::Arguments arguments(argc, argv, options);
     int_t character;
@@ -37,6 +41,9 @@ int_t main(int_t argc, char_t* argv[])
         else
           return usage(argv), 1;
         break;
+      case 'I':
+        additionalArgs.append(String("-I") + argument);
+        break;
       case '?':
         Console::errorf("Unknown option: %s.\n", (const char_t*)argument);
         return 1;
@@ -51,15 +58,20 @@ int_t main(int_t argc, char_t* argv[])
   if(headerFile.isEmpty() || outputFile.isEmpty())
     return usage(argv), 1;
 
-
-
+  // parse input file
   Parser parser;
+  if(!parser.parse(sourceFile, headerFile, additionalArgs))
+    return 1;
+  parser.data.print();
 
+  // create type reflection structure
+  Reflector reflector;
+  if(!reflector.reflect(headerFile, parser.data))
+    return 1;
 
-  parser.metaInfoData.print();
-
+  // generate output file
   Generator generator;
-  if(!generator.generate(outputFile, headerFile, parser.metaInfoData))
+  if(!generator.generate(outputFile, headerFile, reflector.data))
     return 1;
 
   /*

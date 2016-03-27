@@ -1,9 +1,43 @@
 
 buildDir = "Build/$(configuration)/$(target)"
+name = "ccrc"
 
 targets = {
+  
+  Example = cppApplication + {
+    dependencies = { "libnstd", "ccrc", "libccrc" }
+    includePaths = {
+      "Ext/libnstd/include"
+      "Src/libccrc/include"
+    }
+    libPaths = {
+      "$(dir $(buildDir))/libnstd"
+      "$(dir $(buildDir))/libccrc"
+    }
+    libs = { "nstd", "ccrc" }
+    root = "Example"
+    objectFiles = "Example/Objects.h"
+    files = {
+      "Example/*.cpp" = cppSource
+      "Example/*.h"
+      "$(addprefix $(buildDir)/ccrc_,$(addsuffix .cpp,$(basename $(notdir $(objectFiles)))))" = cppSource + {
+        folder = ".ccrc"
+      }
+      "$(objectFiles)" = {
+        output = "$(buildDir)/ccrc_$(basename $(notdir $(file))).cpp"
+        command = "$(dir $(outputDir))/ccrc/ccrc $(file) $(basename $(file)).cpp -o $(output) $(addprefix -I,$(includePaths))"
+        dependencies = "ccrc"
+      }
+    }
+    if tool == "vcxproj" {
+      linkFlags += { "/SUBSYSTEM:CONSOLE" }
+    }
+    if platform == "Linux" {
+      libs += { "pthread", "rt" }
+    }
+  }
 
-  mmigen = cppApplication + {
+  ccrc = cppApplication + {
     dependencies = { "libnstd" }
     includePaths = {
       "Ext/libnstd/include"
@@ -28,6 +62,19 @@ targets = {
     }
     if platform == "Linux" {
       libs += { "pthread", "rt" }
+    }
+  }
+
+  libccrc = cppStaticLibrary + {
+    dependencies = { "libnstd" }
+    includePaths = {
+      "Ext/libnstd/include"
+      "Src/libccrc/include"
+    }
+    root = { "Src/libccrc", "Src/libccrc/include" }
+    files = {
+      "Src/libccrc/*.cpp" = cppSource
+      "Src/libccrc/include/*.h"
     }
   }
 

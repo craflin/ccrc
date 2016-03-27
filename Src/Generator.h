@@ -3,12 +3,12 @@
 
 #include <nstd/File.h>
 
-class MetaInfoData;
+struct ReflectorData;
 
 class Generator
 {
 public:
-  bool_t generate(const String& outputFile, const String& headerFile, const MetaInfoData& metaInfoData);
+  bool_t generate(const String& outputFile, const String& headerFile, const ReflectorData& data);
 
 private:
   File file;
@@ -16,4 +16,9 @@ private:
 private:
   void_t write(const String& str) {file.write(str + "\n"); }
   void_t write() {file.write("\n"); }
+
+  static String getNamespacePrefix(const String& type);
+  static String getNamespaceSuffix(const String& type);
+  static String getVarName(const String& type);
+  static String formatString(const String& str);
 };

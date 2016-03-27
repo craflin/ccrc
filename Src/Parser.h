@@ -1,18 +1,18 @@
 
 #pragma once
 
-#include "MetaInfoData.h"
+#include "ParserData.h"
 
 class Parser
 {
 public:
-  MetaInfoData metaInfoData;
+  ParserData data;
 
 public:
   Parser();
   ~Parser();
 
-  bool_t parse(const String& sourceFile, const String& headerFile);
+  bool_t parse(const String& sourceFile, const String& headerFile, const List<String>& additionalArgs);
 
 private:
   class Private;

@@ -87,7 +87,7 @@ public:
           CXString typeName = clang_getTypeSpelling(type);
           String name = String::fromCString(clang_getCString(typeName));
           clang_disposeString(typeName);
-          typeDecl->addBaseType(name);
+          typeDecl->baseTypes.append(name);
         }
         break;
       }
@@ -110,7 +110,8 @@ public:
             parent = clang_getCursorSemanticParent(parent);
           }
           //Console::printf("%s (template)\n", (const tchar_t*)name);
-          ParserData::TypeDecl& typeDecl = parser.data.getTypeDecl(name);
+          HashMap<String, ParserData::TypeDecl>::Iterator it = parser.data.declarations.find(name);
+          ParserData::TypeDecl& typeDecl = it == parser.data.declarations.end() ? parser.data.declarations.append(name, {}) : *it;
           typeDecl.name = name;
           typeDecl.type = ParserData::TypeDecl::classType;
           action = classAction;
@@ -135,7 +136,8 @@ public:
             //Console::printf("%s\n", (const tchar_t*)name);
             clang_disposeString(typeName);
 
-            ParserData::TypeDecl& typeDecl = parser.data.getTypeDecl(name);
+            HashMap<String, ParserData::TypeDecl>::Iterator it = parser.data.declarations.find(name);
+            ParserData::TypeDecl& typeDecl = it == parser.data.declarations.end() ? parser.data.declarations.append(name, {}) : *it;
             typeDecl.name = name;
             typeDecl.type = cursor.kind == CXCursor_ClassDecl ? ParserData::TypeDecl::classType : (cursor.kind == CXCursor_EnumDecl ? ParserData::TypeDecl::enumType : ParserData::TypeDecl::structType);
             action = classAction;
@@ -154,7 +156,7 @@ public:
           CXString spelling = clang_getCursorSpelling(cursor);
           CXString typeSpelling = clang_getTypeSpelling(type);
           //Console::printf("%s - %s\n", (const tchar_t*)extractReturnType(clang_getCString(typeSpelling)), clang_getCString(spelling));
-          ParserData::TypeDecl::MethodDecl& method = typeDecl->addMethodDecl(String::fromCString(clang_getCString(spelling)), String::fromCString(clang_getCString(typeSpelling)));
+          ParserData::TypeDecl::MethodDecl& method = typeDecl->methods.append({String::fromCString(clang_getCString(spelling)), String::fromCString(clang_getCString(typeSpelling))});
           clang_disposeString(typeSpelling);
           clang_disposeString(spelling);
           action = methodAction;
@@ -178,7 +180,7 @@ public:
           //Console::printf("%s - %s\n", (const tchar_t*)typeName, (const tchar_t*)paramName);
           clang_disposeString(typeSpelling);
           clang_disposeString(paramSpelling);
-          typeDecl->addTemplateParam(paramName, typeName);
+          typeDecl->templateParams.append(paramName, typeName);
         }
       }
       break;
@@ -193,7 +195,7 @@ public:
             CXType type = clang_getCursorType(cursor);
             CXString typeSpelling = clang_getTypeSpelling(type);
             CXString paramSpelling = clang_getCursorSpelling(cursor);
-            methodDecl->addParameter(String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling)));
+            methodDecl->parameters.append({String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling))});
             clang_disposeString(typeSpelling);
             clang_disposeString(paramSpelling);
           }
@@ -232,7 +234,7 @@ public:
             {
               CXString spell = clang_getTokenSpelling(tu, tokens[i]);
               if(String::compare(clang_getCString(spell), "/**", 3) == 0)
-                typeDecl->addInnerComment(String::fromCString(clang_getCString(spell)));
+                typeDecl->innerComments.append(String::fromCString(clang_getCString(spell)));
               clang_disposeString(spell);
             }
             break;

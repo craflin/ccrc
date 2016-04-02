@@ -3,26 +3,10 @@
 
 #include "ParserData.h"
 
-ParserData::TypeDecl& ParserData::getTypeDecl(const String& name)
-{
-  HashMap<String, TypeDecl>::Iterator it = declarations.find(name);
-  if(it == declarations.end())
-    return declarations.append(name, TypeDecl());
-  return *it;
-}
-
 void_t ParserData::print()
 {
   for(HashMap<String, TypeDecl>::Iterator i = declarations.begin(), end = declarations.end(); i != end; ++i)
     i->print();
-}
-
-ParserData::TypeDecl::MethodDecl& ParserData::TypeDecl::addMethodDecl(const String& name, const String& type)
-{
-  TypeDecl::MethodDecl& method = methods.append(TypeDecl::MethodDecl());
-  method.name = name;
-  method.type = type;
-  return method;
 }
 
 void_t ParserData::TypeDecl::print()
@@ -72,13 +56,6 @@ void_t ParserData::TypeDecl::print()
     i->print();
   for(List<String>::Iterator i = innerComments.begin(), end = innerComments.end(); i != end; ++i)
     Console::printf("  %s\n", (const tchar_t*)*i);
-}
-
-void_t ParserData::TypeDecl::MethodDecl::addParameter(const String& name, const String& typeName)
-{
-  Parameter& parameter = parameters.append(Parameter());
-  parameter.name = name;
-  parameter.type = typeName;
 }
 
 void_t ParserData::TypeDecl::MethodDecl::print()

@@ -64,7 +64,7 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
       for(List<ReflectorData::Type::Method>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
       {
         ReflectorData::Type::Method& method = *i;
-        write(String("      {") + formatString(method.name) + "},");
+        write(String("      {") + formatString(method.name) + ", " + formatString(method.description) + "},");
       }
     }
     write(String("    };"));
@@ -139,5 +139,32 @@ String Generator::getVarName(const String& type)
 
 String Generator::formatString(const String& str)
 {
-  return String("\"") + str + String("\"");
+  if(str.isEmpty())
+    return "String()";
+  String result(str.length() * 2);
+  result.append('"');
+  for(const tchar_t* p = str;;)
+  {
+    const tchar_t* end = String::findOneOf(p, "\"\\\r\n");
+    if(!end)
+    {
+      result.append(String(p, String::length(p)));
+      break;
+    }
+    result.append(String(p, end - p));
+    if(*end == '\r' ||*end == '\n')
+    {
+      result.append("\\n\"\n\"");
+      if(*end == '\r' && end[1] == '\n')
+        ++end;
+    }
+    else
+    {
+      result.append("\\");
+      result.append(*end);
+    }
+    p = end + 1;
+  }
+  result.append('"');
+  return result;
 }

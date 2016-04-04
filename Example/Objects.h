@@ -6,7 +6,7 @@ class MyInterface1
 public:
   /**
    * @invokable
-   * Example function
+   * Example "function"\
    * @param p0 Some description
    */
   virtual int func1(int p0) = 0;

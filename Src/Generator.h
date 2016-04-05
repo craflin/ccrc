@@ -20,5 +20,6 @@ private:
   static String getNamespacePrefix(const String& type);
   static String getNamespaceSuffix(const String& type);
   static String getVarName(const String& type);
+  static String getFullVarName(const String& type);
   static String formatString(const String& str);
 };

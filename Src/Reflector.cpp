@@ -1,4 +1,6 @@
 
+#include <nstd/Console.h>
+
 #include "Reflector.h"
 
 bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData)
@@ -59,6 +61,8 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
     for(List<ParserData::TypeDecl::MethodDecl>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
     {
       const ParserData::TypeDecl::MethodDecl& method = *i;
+      if(!method.comment.find("@invokable"))
+        continue;
       ReflectorData::Type::Method& reflectedMethod = reflectedType.methods.append({});
       reflectedMethod.name = method.name;
       reflectedMethod.description = method.comment;
@@ -75,7 +79,26 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
 
   // resolve all unresolved types in type reflection
   for(List<UnresolvedType>::Iterator i = unresolvedTypes.begin(), end = unresolvedTypes.end(); i != end; ++i)
-    *i->type = &*data.types.find(i->name);
+  {
+    HashMap<String, ReflectorData::Type>::Iterator it = data.types.find(i->name);
+    if(it == data.types.end())
+    {
+      if(i->name == "int")
+      {
+        ReflectorData::Type& reflectedType = data.types.append(i->name, ReflectorData::Type());
+        reflectedType.name = i->name;
+        reflectedType.reflectionType = ReflectorData::Type::referencedType;
+        reflectedType.external = true;
+        it = --HashMap<String, ReflectorData::Type>::Iterator(data.types.end());
+      }
+      else
+      {
+        Console::errorf("Unknown type '%s'\n", (const tchar_t*)i->name);
+        return false;
+      }
+    }
+    *i->type = &*it;
+  }
 
   return true;
 }

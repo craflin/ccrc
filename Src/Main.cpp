@@ -62,7 +62,7 @@ int_t main(int_t argc, char_t* argv[])
   Parser parser;
   if(!parser.parse(sourceFile, headerFile, additionalArgs))
     return 1;
-  parser.data.print();
+  //parser.data.print();
 
   // create type reflection structure
   Reflector reflector;

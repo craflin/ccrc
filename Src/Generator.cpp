@@ -40,7 +40,7 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
     {
       write(String("    const Reflected::Type* _") + getVarName(type.name) + "_BaseTypes[] = { ");
       for(List<ReflectorData::Type*>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
-        write(String("      &") + (*i)->name + ",");
+        write(String("      &") + getFullVarName((*i)->name) + ",");
       write(String("    };"));
     }
       
@@ -64,14 +64,17 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
       for(List<ReflectorData::Type::Method>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
       {
         ReflectorData::Type::Method& method = *i;
-        write(String("      {") + formatString(method.name) + ", " + formatString(method.description) + "},");
+        write(String("      {") + formatString(method.name) + ", " + formatString(method.description) + ", &" + getFullVarName(method.type->name) + "},");
       }
+      write(String("    };"));
     }
-    write(String("    };"));
     write(String("    extern const Reflected::Type ") + getVarName(type.name) + " = { ");
     write(String("      ") + formatString(type.name) + ",");
     write(String("      ") + formatString(type.description) + ",");
-    write(String("      _") + getVarName(type.name) + "_Methods,");
+    if(type.methods.isEmpty())
+      write(String("      0,"));
+    else
+      write(String("      _") + getVarName(type.name) + "_Methods,");
     write(String("      ") + String::fromUInt64(type.methods.size()) + ",");
     write(String("      0,"));
     write(String("      0,"));
@@ -134,7 +137,18 @@ String Generator::getVarName(const String& type)
   const tchar_t* var = String::findLast(start, "::");
   if(var)
     return type.substr(var + 2 - start);
+  if(type == "int")
+    return String("_") + type + "Type";
   return type;
+}
+
+String Generator::getFullVarName(const String& type)
+{
+  const tchar_t* start = type;
+  const tchar_t* var = String::findLast(start, "::");
+  if(var)
+    return type;
+  return getVarName(type);
 }
 
 String Generator::formatString(const String& str)

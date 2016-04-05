@@ -91,7 +91,14 @@ String ParserData::TypeDecl::MethodDecl::getReturnType() const
   if(!p)
     return String();
   if(*p == ' ')
-    return String::fromCString(functionType, p - functionType);
+  {
+    String result =String::fromCString(functionType, p - functionType);
+    if(result == "const")
+    {
+      int k = 42;
+    }
+    return result;
+  }
   for(size_t depth = 1;;)
   {
     p = String::findOneOf(p + 1, "<>");

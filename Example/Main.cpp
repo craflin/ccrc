@@ -12,6 +12,12 @@ void_t printObject(const Reflected& obj)
   for(size_t i = 0; i < type.baseTypesNum; ++i)
     Console::printf("%s, ", (const tchar_t*)type.baseTypes[i]->name);
   Console::printf("\n");
+  for(size_t i = 0; i < type.methodsNum; ++i)
+  {
+    const Reflected::Type::Method& method = type.methods[i];
+    Console::printf("%s %s(", (const tchar_t*)method.type->name, (const tchar_t*)method.name);
+    Console::printf(")\n");
+  }
 
   Console::printf("\n");
 }

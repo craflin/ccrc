@@ -35,9 +35,18 @@ public:
     CXCursor cursor;
   };
 
+  enum Action
+  {
+    noAction,
+    classAction,
+    methodAction,
+    paramAction,
+  };
+
 public:
   ParserData& data;
   CXSourceLocation lastLocation;
+  Action lastAction;
   HashMap<Cursor, ParserData::TypeDecl*> typesByCursor;
   HashMap<Cursor, ParserData::TypeDecl::MethodDecl*> methodsByCursor;
 
@@ -57,6 +66,7 @@ public:
       (int)args.size(), args, 0, 0); //clang_createTranslationUnit(index, sourceFile);
     CXCursor cursor = clang_getTranslationUnitCursor(tu);
     lastLocation = clang_getCursorLocation(cursor);
+    lastAction = noAction;
     clang_visitChildren(cursor, visitChildrenCallback, this);
 
     clang_disposeTranslationUnit(tu);
@@ -69,12 +79,7 @@ public:
   {
     Private& parser = *(Private*)client_data;
 
-    enum Action
-    {
-      noAction,
-      classAction,
-      methodAction,
-    } action = noAction;
+    Action action = noAction;
 
     switch(cursor.kind)
     {
@@ -196,8 +201,41 @@ public:
             CXString typeSpelling = clang_getTypeSpelling(type);
             CXString paramSpelling = clang_getCursorSpelling(cursor);
             methodDecl->parameters.append({String::fromCString(clang_getCString(paramSpelling)), String::fromCString(clang_getCString(typeSpelling))});
+            if(methodDecl->parameters.back().name == "p0")
+            {
+              int k = 42;
+            }
             clang_disposeString(typeSpelling);
             clang_disposeString(paramSpelling);
+            action = paramAction;
+          }
+        }
+        break;
+      }
+    case CXCursor_IntegerLiteral:
+    case CXCursor_StringLiteral:
+    case CXCursor_FloatingLiteral:
+      {
+        if(parser.lastAction == paramAction)
+        {
+          ParserData::TypeDecl::MethodDecl* methodDecl = *parser.methodsByCursor.find(clang_getCursorSemanticParent(parent));
+          if(methodDecl)
+          {
+            if(!methodDecl->parameters.isEmpty())
+            {
+              CXSourceRange range = clang_getCursorExtent(cursor);
+              CXToken *tokens = 0;
+              unsigned int tokensCount = 0;
+              CXTranslationUnit tu = clang_Cursor_getTranslationUnit(cursor);
+              clang_tokenize(tu, range, &tokens, &tokensCount);
+              if(tokensCount)
+              {
+                CXString spelling = clang_getTokenSpelling(tu, tokens[0]);
+                methodDecl->parameters.back().value = String::fromCString(clang_getCString(spelling));
+                clang_disposeString(spelling);
+              }
+              clang_disposeTokens(tu, tokens, tokensCount);
+            }
           }
         }
         break;
@@ -308,6 +346,7 @@ public:
       }
     }
     parser.lastLocation = location;
+    parser.lastAction = action;
 
     // visit children recursively
     clang_visitChildren(cursor, visitChildrenCallback, &parser);

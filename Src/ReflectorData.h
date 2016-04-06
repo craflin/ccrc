@@ -4,6 +4,7 @@
 #include <nstd/String.h>
 #include <nstd/List.h>
 #include <nstd/HashMap.h>
+#include <nstd/Variant.h>
 
 struct ReflectorData
 {
@@ -31,6 +32,7 @@ public:
         Type* type;
         String name;
         String description;
+        Variant value;
       };
 
       String name;

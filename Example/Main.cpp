@@ -13,8 +13,12 @@ void_t printObjectMethods(const Reflected::Type& type)
     Console::printf("%s %s(", (const tchar_t*)method.type->name, (const tchar_t*)method.name);
     for(size_t i = 0; i < method.parametersNum; ++i)
     {
+      if(i != 0)
+        Console::printf(", ");
       const Reflected::Type::Method::Parameter& parameter = method.parameters[i];
-      Console::printf("%s %s%s", (const tchar_t*)parameter.type->name, (const tchar_t*)parameter.name, i + 1 < method.parametersNum ? ", " : "");
+      Console::printf("%s %s", (const tchar_t*)parameter.type->name, (const tchar_t*)parameter.name);
+      if(!parameter.defaultValue.isNull())
+        Console::printf(" = %s", (const tchar_t*)parameter.defaultValue.toString());
     }
     Console::printf(")\n");
   }

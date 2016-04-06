@@ -55,7 +55,8 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
           const ReflectorData::Type::Method::Parameter& parameter = *i;
           write(String("      {") + formatString(parameter.name) + ", ");
           write(formatString(parameter.description) + ", ");
-          write(String("&") + getFullVarName(parameter.type->name) + "},\n");
+          write(String("&") + getFullVarName(parameter.type->name) + ", ");
+          write(formatVariant(parameter.value) +  "},\n");
         }
         write(String("    };\n"));
       }
@@ -196,4 +197,27 @@ String Generator::formatString(const String& str)
   }
   result.append('"');
   return result;
+}
+
+String Generator::formatVariant(const Variant& var)
+{
+  switch(var.getType())
+  {
+  case Variant::boolType:
+    return String("Variant(") + (var.toBool() ? String("true") : String("false")) + ")";
+  case Variant::doubleType:
+    return String("Variant(") + String::fromDouble(var.toDouble()) + ")";
+  case Variant::intType:
+    return String("Variant(") + String::fromInt64(var.toUInt()) + ")";
+  case Variant::uintType:
+    return String("Variant(") + String::fromInt64(var.toUInt()) + "UL)";
+  case Variant::int64Type:
+    return String("Variant(") + String::fromInt64(var.toUInt64()) + "LL)";
+  case Variant::uint64Type:
+    return String("Variant(") + String::fromUInt64(var.toUInt64()) + "ULL)";
+  case Variant::stringType:
+    return String("Variant(") + formatString(var.toString()) + ")";
+  default:
+    return "Variant()";
+  }
 }

@@ -16,7 +16,7 @@ public:
    * Example "function"\
    * @param p0 Some description
    */
-  virtual int func1(int p0) = 0;
+  virtual int func1(int p0 = 3) = 0;
 
   /**
    * @invokable

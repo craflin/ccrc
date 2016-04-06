@@ -4,6 +4,7 @@
 #include <nstd/String.h>
 #include <nstd/HashMap.h>
 #include <nstd/List.h>
+#include <nstd/Variant.h>
 
 class ParserData
 {
@@ -23,6 +24,7 @@ public:
       {
         String name;
         String type;
+        Variant value;
       };
 
       String name;

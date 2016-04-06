@@ -22,4 +22,5 @@ private:
   static String getVarName(const String& type);
   static String getFullVarName(const String& type);
   static String formatString(const String& str);
+  static String formatVariant(const Variant& var);
 };

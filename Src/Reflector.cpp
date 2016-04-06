@@ -72,6 +72,19 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
         ParserData::TypeDecl::MethodDecl::Parameter& parameter = *i;
         ReflectorData::Type::Method::Parameter& reflectedParameter = reflectedMethod.parameters.append({});
         reflectedParameter.name = parameter.name;
+        reflectedParameter.value = parameter.value;
+        if(Variant(reflectedParameter.value.toBool()).toString() == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toBool();
+        else if(String::fromInt(reflectedParameter.value.toInt()) == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toInt();
+        else if(String::fromUInt(reflectedParameter.value.toUInt()) == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toUInt();
+        else if(String::fromInt64(reflectedParameter.value.toInt64()) == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toInt();
+        else if(String::fromUInt64(reflectedParameter.value.toUInt64()) == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toUInt64();
+        else if(String::fromDouble(reflectedParameter.value.toDouble()) == reflectedParameter.value.toString())
+          reflectedParameter.value = reflectedParameter.value.toDouble();
         unresolvedTypes.append({parameter.type, &reflectedParameter.type});
       }
     }

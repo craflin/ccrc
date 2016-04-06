@@ -104,7 +104,7 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
     const ReflectorData::Type& type = *i;
     if(type.external || type.reflectionType != type.objectType)
       continue;
-    write(String("const Reflected::Type& ") + type.name + "::getReflectedType() const {return Reflection::" + type.name + ";}\n");
+    write(String("const Reflected::Type& ") + type.name + "::getReflectedType() const {return Reflection::" + getFullVarName(type.name) + ";}\n");
   }
   return true;
 }
@@ -119,7 +119,7 @@ String Generator::getNamespacePrefix(const String& type)
     const tchar_t* namespaceEnd = String::find(namespaceStart, "::");
     if(!namespaceEnd)
       return prefix;
-    prefix.append(String("namespace ") + type.substr(namespaceStart - start, namespaceEnd - namespaceStart) + " {");
+    prefix.append(String("namespace _") + type.substr(namespaceStart - start, namespaceEnd - namespaceStart) + " {");
     namespaceStart = namespaceEnd + 2;
   }
 }
@@ -152,11 +152,17 @@ String Generator::getVarName(const String& type)
 
 String Generator::getFullVarName(const String& type)
 {
+  String prefix;
   const tchar_t* start = type;
-  const tchar_t* var = String::findLast(start, "::");
-  if(var)
-    return type;
-  return getVarName(type);
+  const tchar_t* namespaceStart = start;
+  for(;;)
+  {
+    const tchar_t* namespaceEnd = String::find(namespaceStart, "::");
+    if(!namespaceEnd)
+      return prefix + getVarName(type);
+    prefix.append(String("_") + type.substr(namespaceStart - start, namespaceEnd - namespaceStart) + "::");
+    namespaceStart = namespaceEnd + 2;
+  }
 }
 
 String Generator::formatString(const String& str)

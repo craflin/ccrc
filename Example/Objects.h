@@ -4,6 +4,13 @@
 class MyInterface1
 {
 public:
+  enum Enum1
+  {
+    field1,
+    field2
+  };
+
+public:
   /**
    * @invokable
    * Example "function"\
@@ -16,7 +23,7 @@ public:
    * Example function
    * @param p0 Some description
    */
-  virtual int func2(int p0) = 0;
+  virtual Enum1 func2(int p0) = 0;
 };
 
 /** some comment for MyObject1 */
@@ -44,7 +51,7 @@ public:
 
 public:
   virtual int func1(int p0) {return 0;}
-  virtual int func2(int p0) {return 0;}
+  virtual Enum1 func2(int p0) {return field1;}
 
 public:
   /**

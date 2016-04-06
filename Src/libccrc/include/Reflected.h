@@ -14,7 +14,7 @@ public:
       {
         String name;
         String description;
-        Type* type;
+        const Type* type;
         Variant defaultValue;
       };
       

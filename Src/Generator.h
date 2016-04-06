@@ -14,7 +14,7 @@ private:
   File file;
 
 private:
-  void_t write(const String& str) {file.write(str + "\n"); }
+  void_t write(const String& str) {file.write(str); }
   void_t write() {file.write("\n"); }
 
   static String getNamespacePrefix(const String& type);

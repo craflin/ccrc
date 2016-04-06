@@ -15,17 +15,17 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
   String headerFileAbs = File::isAbsolutePath(headerFile) ? headerFile : String("/") + headerFile;
 
   write();
-  write(String("#include <Reflected.h>"));
+  write(String("#include <Reflected.h>\n"));
   write();
-  write(String("#include \"") + File::getRelativePath(File::dirname(outputFileAbs), headerFileAbs) + "\"");
+  write(String("#include \"") + File::getRelativePath(File::dirname(outputFileAbs), headerFileAbs) + "\"\n");
   write();
-  write(String("namespace Reflection"));
-  write(String("{"));
+  write(String("namespace Reflection\n"));
+  write(String("{\n"));
 
   for(HashMap<String, ReflectorData::Type>::Iterator i = data.types.begin(), end = data.types.end(); i != end; ++i)
   {
     const ReflectorData::Type& type = *i;
-    write(String("  ") + getNamespacePrefix(type.name) + "extern const Reflected::Type " + getVarName(type.name) + ";" + getNamespaceSuffix(type.name));
+    write(String("  ") + getNamespacePrefix(type.name) + "extern const Reflected::Type " + getVarName(type.name) + ";" + getNamespaceSuffix(type.name) + "\n");
   }
   write();
 
@@ -35,13 +35,13 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
     if(type.external && type.reflectionType != ReflectorData::Type::referencedType)
       continue;
 
-    write(String("  ") + getNamespacePrefix(type.name));
+    write(String("  ") + getNamespacePrefix(type.name) + "\n");
     if(!type.baseTypes.isEmpty())
     {
-      write(String("    const Reflected::Type* _") + getVarName(type.name) + "_BaseTypes[] = { ");
+      write(String("    const Reflected::Type* _") + getVarName(type.name) + "_BaseTypes[] = {");
       for(List<ReflectorData::Type*>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
-        write(String("      &") + getFullVarName((*i)->name) + ",");
-      write(String("    };"));
+        write(String("&") + getFullVarName((*i)->name) + ", ");
+      write(String("};\n"));
     }
       
     for(List<ReflectorData::Type::Method>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
@@ -49,45 +49,54 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
       const ReflectorData::Type::Method& method = *i;
       if(!method.parameters.isEmpty())
       {
-        write(String("    const Reflected::Type::Method::Parameter _Method_") + getVarName(type.name) + "_" + method.name + "_Parameters[] = { ");
+        write(String("    const Reflected::Type::Method::Parameter _Method_") + getVarName(type.name) + "_" + method.name + "_Parameters[] = {\n");
         for(List<ReflectorData::Type::Method::Parameter>::Iterator i = method.parameters.begin(), end = method.parameters.end(); i != end; ++i)
         {
           const ReflectorData::Type::Method::Parameter& parameter = *i;
-          write(String(String("      {") + formatString(parameter.name) +  "},"));
+          write(String("      {") + formatString(parameter.name) + ", ");
+          write(formatString(parameter.description) + ", ");
+          write(String("&") + getFullVarName(parameter.type->name) + "},\n");
         }
-        write(String("    };"));
+        write(String("    };\n"));
       }
     }
     if(!type.methods.isEmpty())
     {
-      write(String("    const Reflected::Type::Method _") + getVarName(type.name) + "_Methods[] = { ");
+      write(String("    const Reflected::Type::Method _") + getVarName(type.name) + "_Methods[] = {\n");
       for(List<ReflectorData::Type::Method>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
       {
         ReflectorData::Type::Method& method = *i;
-        write(String("      {") + formatString(method.name) + ", " + formatString(method.description) + ", &" + getFullVarName(method.type->name) + "},");
+        write(String("      {") + formatString(method.name) + ", ");
+        write(formatString(method.description) + ", ");
+        write(String("&") + getFullVarName(method.type->name) + ", ");
+        if(method.parameters.isEmpty())
+          write(String("0, "));
+        else
+          write(String("_Method_") + getVarName(type.name) + "_" + method.name + "_Parameters, ");
+        write(String::fromUInt64(method.parameters.size()) + "},\n");
       }
-      write(String("    };"));
+      write(String("    };\n"));
     }
-    write(String("    extern const Reflected::Type ") + getVarName(type.name) + " = { ");
-    write(String("      ") + formatString(type.name) + ",");
-    write(String("      ") + formatString(type.description) + ",");
+    write(String("    extern const Reflected::Type ") + getVarName(type.name) + " = {");
+    write(formatString(type.name) + ", ");
+    write(formatString(type.description) + ", ");
     if(type.methods.isEmpty())
-      write(String("      0,"));
+      write(String("0, "));
     else
-      write(String("      _") + getVarName(type.name) + "_Methods,");
-    write(String("      ") + String::fromUInt64(type.methods.size()) + ",");
-    write(String("      0,"));
-    write(String("      0,"));
+      write(String("_") + getVarName(type.name) + "_Methods, ");
+    write(String::fromUInt64(type.methods.size()) + ", ");
+    write(String("0, "));
+    write(String("0, "));
     if(type.baseTypes.isEmpty())
-      write(String("      0,"));
+      write(String("0, "));
     else
-      write(String("      _") + getVarName(type.name) + "_BaseTypes,");
-    write(String("      ") + String::fromUInt64(type.baseTypes.size()) + ",");
-    write(String("    };"));
-    write(String("  ") + getNamespaceSuffix(type.name));
+      write(String("_") + getVarName(type.name) + "_BaseTypes, ");
+    write(String::fromUInt64(type.baseTypes.size()) + ",");
+    write(String("};\n"));
+    write(String("  ") + getNamespaceSuffix(type.name) + "\n");
   }
 
-  write(String("};"));
+  write(String("};\n"));
   write();
 
   for(HashMap<String, ReflectorData::Type>::Iterator i = data.types.begin(), end = data.types.end(); i != end; ++i)
@@ -95,8 +104,7 @@ bool_t Generator::generate(const String& outputFile, const String& headerFile, c
     const ReflectorData::Type& type = *i;
     if(type.external || type.reflectionType != type.objectType)
       continue;
-    write(String("const Reflected::Type& ") + type.name + "::getReflectedType() const {return Reflection::" + type.name + ";}");
-    write();
+    write(String("const Reflected::Type& ") + type.name + "::getReflectedType() const {return Reflection::" + type.name + ";}\n");
   }
   return true;
 }
@@ -168,7 +176,8 @@ String Generator::formatString(const String& str)
     result.append(String(p, end - p));
     if(*end == '\r' ||*end == '\n')
     {
-      result.append("\\n\"\n\"");
+      //result.append("\\n\"\n\"");
+      result.append("\\n");
       if(*end == '\r' && end[1] == '\n')
         ++end;
     }

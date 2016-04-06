@@ -3,6 +3,23 @@
 
 #include "Objects.h"
 
+void_t printObjectMethods(const Reflected::Type& type)
+{
+  for(size_t i = 0; i < type.baseTypesNum; ++i)
+    printObjectMethods(*type.baseTypes[i]);
+  for(size_t i = 0; i < type.methodsNum; ++i)
+  {
+    const Reflected::Type::Method& method = type.methods[i];
+    Console::printf("%s %s(", (const tchar_t*)method.type->name, (const tchar_t*)method.name);
+    for(size_t i = 0; i < method.parametersNum; ++i)
+    {
+      const Reflected::Type::Method::Parameter& parameter = method.parameters[i];
+      Console::printf("%s %s%s", (const tchar_t*)parameter.type->name, (const tchar_t*)parameter.name, i + 1 < method.parametersNum ? ", " : "");
+    }
+    Console::printf(")\n");
+  }
+}
+
 void_t printObject(const Reflected& obj)
 {
   const Reflected::Type& type = obj.getReflectedType();
@@ -12,12 +29,7 @@ void_t printObject(const Reflected& obj)
   for(size_t i = 0; i < type.baseTypesNum; ++i)
     Console::printf("%s, ", (const tchar_t*)type.baseTypes[i]->name);
   Console::printf("\n");
-  for(size_t i = 0; i < type.methodsNum; ++i)
-  {
-    const Reflected::Type::Method& method = type.methods[i];
-    Console::printf("%s %s(", (const tchar_t*)method.type->name, (const tchar_t*)method.name);
-    Console::printf(")\n");
-  }
+  printObjectMethods(type);
 
   Console::printf("\n");
 }

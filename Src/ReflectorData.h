@@ -15,6 +15,7 @@ public:
       interfaceType,
       objectType,
       referencedType,
+      buildinType,
     };
 
     struct Field

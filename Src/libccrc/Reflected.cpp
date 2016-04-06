@@ -4,6 +4,7 @@
 namespace Reflection
 {
   extern const Reflected::Type Reflected = {"Reflected"};
+  extern const Reflected::Type _intType = {"int"};
 }
 /*
 bool_t Reflected::invokeMethod(const String& name, Variant& result, ...)

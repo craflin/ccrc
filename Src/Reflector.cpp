@@ -87,7 +87,7 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
       {
         ReflectorData::Type& reflectedType = data.types.append(i->name, ReflectorData::Type());
         reflectedType.name = i->name;
-        reflectedType.reflectionType = ReflectorData::Type::referencedType;
+        reflectedType.reflectionType = ReflectorData::Type::buildinType;
         reflectedType.external = true;
         it = --HashMap<String, ReflectorData::Type>::Iterator(data.types.end());
       }

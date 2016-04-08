@@ -14,4 +14,6 @@ public:
 
 private:
   static ReflectorData::Type::ReflectionType getReflectionType(const ParserData& parserData, const ParserData::TypeDecl& type);
+  static String extractClassDescriptions(const String& comment);
+  static void_t extractMethodDescriptions(const String& comment, ReflectorData::Type::Method& method);
 };

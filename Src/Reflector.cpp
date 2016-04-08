@@ -53,7 +53,7 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
     const ParserData::TypeDecl& type = *i.key();
     ReflectorData::Type& reflectedType = data.types.append(type.name, ReflectorData::Type());
     reflectedType.name = type.name;
-    reflectedType.description = type.comment;
+    reflectedType.description = extractClassDescriptions(type.comment);
     reflectedType.reflectionType = *i;
     reflectedType.external = type.file != headerFile;
     for(List<String>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
@@ -65,7 +65,6 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
         continue;
       ReflectorData::Type::Method& reflectedMethod = reflectedType.methods.append({});
       reflectedMethod.name = method.name;
-      reflectedMethod.description = method.comment;
       unresolvedTypes.append({method.getReturnType(), &reflectedMethod.type});
       for(List<ParserData::TypeDecl::MethodDecl::Parameter>::Iterator i = method.parameters.begin(), end = method.parameters.end(); i != end; ++i)
       {
@@ -87,6 +86,7 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
           reflectedParameter.value = reflectedParameter.value.toDouble();
         unresolvedTypes.append({parameter.type, &reflectedParameter.type});
       }
+      extractMethodDescriptions(method.comment, reflectedMethod);
     }
   }
 
@@ -138,4 +138,164 @@ ReflectorData::Type::ReflectionType Reflector::getReflectionType(const ParserDat
     if(i->find("@invokable") || i->find("@property"))
       return ReflectorData::Type::interfaceType;
   return ReflectorData::Type::referencedType;
+}
+
+String Reflector::extractClassDescriptions(const String& comment)
+{
+  List<String> lines;
+  comment.split(lines, "\n\r");
+  if(lines.isEmpty())
+    return String();
+  if(lines.front().startsWith("/**"))
+    lines.front() = lines.front().substr(3);
+  if(lines.back().endsWith("*/"))
+    lines.back() = lines.back().substr(0, lines.back().length() - 2);
+  for(List<String>::Iterator begin = lines.begin(), i = begin, end = lines.end(); i != end; ++i)
+  {
+    const tchar_t* p = *i;
+    while(String::isSpace(*p))
+      ++p;
+    if(*p == '*' && i != begin)
+    {
+      ++p;
+      while(String::isSpace(*p))
+        ++p;
+    }
+    if(p != (const tchar_t*)*i)
+      *i = i->substr(p - (const tchar_t*)*i);
+  }
+  String description;
+  for(List<String>::Iterator i = lines.begin(), end = lines.end(); i != end; ++i)
+  {
+    const String& line = *i;
+    if(line.isEmpty())
+      continue;
+    if(!description.isEmpty())
+      description.append(' ');
+    description.append(line);
+  }
+  return description;
+}
+
+void_t Reflector::extractMethodDescriptions(const String& comment, ReflectorData::Type::Method& method)
+{
+  List<String> lines;
+  comment.split(lines, "\n\r");
+  if(lines.isEmpty())
+    return;
+  if(lines.front().startsWith("/**"))
+    lines.front() = lines.front().substr(3);
+  if(lines.back().endsWith("*/"))
+    lines.back() = lines.back().substr(0, lines.back().length() - 2);
+  for(List<String>::Iterator begin = lines.begin(), i = begin, end = lines.end(); i != end; ++i)
+  {
+    const tchar_t* p = *i;
+    while(String::isSpace(*p))
+      ++p;
+    if(*p == '*' && i != begin)
+    {
+      ++p;
+      while(String::isSpace(*p))
+        ++p;
+    }
+    if(p != (const tchar_t*)*i)
+      *i = i->substr(p - (const tchar_t*)*i);
+  }
+  String& description = method.description;
+  for(List<String>::Iterator i = lines.begin(), end = lines.end(); i != end; ++i)
+  {
+    const String& line = *i;
+    if(line.isEmpty())
+      continue;
+    if(line.startsWith("@") || line.startsWith("\\"))
+    {
+      const tchar_t* p = (const tchar_t*)line + 1;
+      if(String::compare(p, "class", 5) == 0 || String::compare(p, "interface", 9) == 0 || String::compare(p, "invokable", 9) == 0)
+        continue;
+      if(String::compare(p, "param", 5) == 0)
+      {
+        p += 5;
+        while(String::isSpace(*p))
+          ++p;
+        if(*p == '[')
+        {
+          ++p;
+          while(*p && *p != ']')
+            ++p;
+          while(String::isSpace(*p))
+            ++p;
+        }
+        const tchar_t* end = String::findOneOf(p, " \t");
+        if(!end)
+          continue;
+        String parameterName(p, end -p);
+        p = end;
+        while(String::isSpace(*p))
+          ++p;
+        String description(p, line.length() - (p - (const tchar_t*)line));
+        for(List<ReflectorData::Type::Method::Parameter>::Iterator i =  method.parameters.begin(), end = method.parameters.end(); i != end; ++i)
+        {
+          ReflectorData::Type::Method::Parameter& parameter = *i;
+          if(parameter.name == parameterName)
+          {
+            parameter.description = description;
+            break;
+          }
+        }
+        continue;
+      }
+    }
+    if(!description.isEmpty())
+      description.append(' ');
+    description.append(line);
+  }
+
+
+  /*
+  const tchar_t* p = comment;
+  if(String::compare(p, "/**", 3) == 0)
+    p += 3;
+  for(;; ++p)
+    switch(*p)
+    {
+    case ' ':
+    case '\t':
+      continue;
+    case '\n':
+      while(String::isSpace(*p))
+        ++p;
+      if(*p != '*')
+        --p;
+      continue;
+    case '@':
+    case '\\':
+      ++p;
+      if(String::compare(0, "param", 5) == 0)
+      {
+        p += 5;
+        while(String::isSpace(*p))
+          ++p;
+        if(*p == '[')
+        {
+          ++p;
+          while(*p && *p != ']')
+            ++p;
+          while(String::isSpace(*p))
+            ++p;
+        }
+
+      }
+      else if(String::compare(0, "class", 5) == 0 || String::compare(0, "interface", 9) == 0 || String::compare(0, "invokable", 9) == 0)
+      {
+        p = String::find(p, '\r');
+        if(!p)
+          goto finish;
+      }
+      continue;
+    default:
+      ??
+    }
+finish:
+  ;
+  */
 }

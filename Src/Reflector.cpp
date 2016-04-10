@@ -3,41 +3,53 @@
 
 #include "Reflector.h"
 
+String Reflector::buildinTypes[] = {
+  "int",
+  "bool",
+};
+
+void_t Reflector::addReferencedType(const String& name)
+{
+  if(referencedTypes.find(name) != referencedTypes.end())
+    return;
+  HashMap<String, ParserData::TypeDecl>::Iterator it = parserData->declarations.find(name);
+  if(it != parserData->declarations.end())
+    return (void_t)referencedTypes.append(name, &*it);
+
+  for(size_t i = 0; i < sizeof(buildinTypes)/sizeof(*buildinTypes); ++i)
+    if(name == buildinTypes[i])
+    {
+      ParserData::TypeDecl& type = additionalTypes.append();
+      type.name = name;
+      referencedTypes.append(name, &type);
+      return;
+    }
+
+  //?? template type?
+}
+
 bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData)
 {
+  this->parserData = &parserData;
+
   // find all referenced types in header file
-  HashMap<const ParserData::TypeDecl*, ReflectorData::Type::ReflectionType> referencedTypes;
   for(HashMap<String, ParserData::TypeDecl>::Iterator i = parserData.declarations.begin(), end = parserData.declarations.end(); i != end; ++i)
   {
     const ParserData::TypeDecl& type = *i;
     if(type.file != headerFile)
       continue;
-    ReflectorData::Type::ReflectionType reflectionType = getReflectionType(parserData, type);
+    ReflectorData::Type::ReflectionType reflectionType = getReflectionType(type);
     if(reflectionType != ReflectorData::Type::interfaceType && reflectionType != ReflectorData::Type::objectType)
       continue;
-    referencedTypes.append(&type, reflectionType);
+    addReferencedType(type.name);
     for(List<String>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
-    {
-      HashMap<String, ParserData::TypeDecl>::Iterator it = parserData.declarations.find(*i);
-      if(it != parserData.declarations.end())
-        if(referencedTypes.find(&*it) == referencedTypes.end())
-          referencedTypes.append(&*it, getReflectionType(parserData, type));
-    }
+      addReferencedType(*i);
     for(List<ParserData::TypeDecl::MethodDecl>::Iterator i = type.methods.begin(), end = type.methods.end(); i != end; ++i)
     {
       ParserData::TypeDecl::MethodDecl& method = *i;
-      HashMap<String, ParserData::TypeDecl>::Iterator it = parserData.declarations.find(method.getReturnType());
-      if(it != parserData.declarations.end())
-        if(referencedTypes.find(&*it) == referencedTypes.end())
-          referencedTypes.append(&*it, getReflectionType(parserData, type));
+      addReferencedType(method.getReturnType());
       for(List<ParserData::TypeDecl::MethodDecl::Parameter>::Iterator i = method.parameters.begin(), end = method.parameters.end(); i != end; ++i)
-      {
-        ParserData::TypeDecl::MethodDecl::Parameter& parameter = *i;
-        HashMap<String, ParserData::TypeDecl>::Iterator it = parserData.declarations.find(parameter.type);
-        if(it != parserData.declarations.end())
-          if(referencedTypes.find(&*it) == referencedTypes.end())
-            referencedTypes.append(&*it, getReflectionType(parserData, type));
-      }
+        addReferencedType(i->type);
     }
   }
 
@@ -48,13 +60,13 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
     ReflectorData::Type** type;
   };
   List<UnresolvedType> unresolvedTypes;
-  for(HashMap<const ParserData::TypeDecl*, ReflectorData::Type::ReflectionType>::Iterator i = referencedTypes.begin(), end = referencedTypes.end(); i != end; ++i)
+  for(HashMap<String, const ParserData::TypeDecl*>::Iterator i = referencedTypes.begin(), end = referencedTypes.end(); i != end; ++i)
   {
-    const ParserData::TypeDecl& type = *i.key();
+    const ParserData::TypeDecl& type = **i;
     ReflectorData::Type& reflectedType = data.types.append(type.name, ReflectorData::Type());
     reflectedType.name = type.name;
     reflectedType.description = extractClassDescriptions(type.comment);
-    reflectedType.reflectionType = *i;
+    reflectedType.reflectionType = getReflectionType(type);
     reflectedType.external = type.file != headerFile;
     for(List<String>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
       unresolvedTypes.append({*i, &reflectedType.baseTypes.append(0)});
@@ -116,17 +128,17 @@ bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData
   return true;
 }
 
-ReflectorData::Type::ReflectionType Reflector::getReflectionType(const ParserData& parserData, const ParserData::TypeDecl& type)
+ReflectorData::Type::ReflectionType Reflector::getReflectionType(const ParserData::TypeDecl& type)
 {
   if(type.name == "Reflected")
     return ReflectorData::Type::objectType;
   ReflectorData::Type::ReflectionType refType = ReflectorData::Type::referencedType;
   for(List<String>::Iterator i = type.baseTypes.begin(), end = type.baseTypes.end(); i != end; ++i)
   {
-    HashMap<String, ParserData::TypeDecl>::Iterator it = parserData.declarations.find(*i);
-    if(it == parserData.declarations.end())
+    HashMap<String, ParserData::TypeDecl>::Iterator it = parserData->declarations.find(*i);
+    if(it == parserData->declarations.end())
       continue;
-    ReflectorData::Type::ReflectionType baseRefType = getReflectionType(parserData, *it);
+    ReflectorData::Type::ReflectionType baseRefType = getReflectionType(*it);
     if(baseRefType == ReflectorData::Type::objectType)
       return ReflectorData::Type::objectType;
     if(baseRefType == ReflectorData::Type::interfaceType)
@@ -137,7 +149,20 @@ ReflectorData::Type::ReflectionType Reflector::getReflectionType(const ParserDat
   for(List<String>::Iterator i = type.innerComments.begin(), end = type.innerComments.end(); i != end; ++i)
     if(i->find("@invokable") || i->find("@property"))
       return ReflectorData::Type::interfaceType;
+
+  for(size_t i = 0; i < sizeof(buildinTypes)/sizeof(*buildinTypes); ++i)
+    if(type.name == buildinTypes[i])
+      return ReflectorData::Type::buildinType;
+
   return ReflectorData::Type::referencedType;
+}
+
+String Reflector::getTemplateName(const String& type)
+{
+  const tchar_t* end = type.find('<');
+  if(!end)
+    return String();
+  return type.substr(0, end - (const tchar_t*)type);
 }
 
 String Reflector::extractClassDescriptions(const String& comment)
@@ -201,7 +226,7 @@ void_t Reflector::extractMethodDescriptions(const String& comment, ReflectorData
     if(p != (const tchar_t*)*i)
       *i = i->substr(p - (const tchar_t*)*i);
   }
-  String& description = method.description;
+  String* description = &method.description;
   for(List<String>::Iterator i = lines.begin(), end = lines.end(); i != end; ++i)
   {
     const String& line = *i;
@@ -232,22 +257,23 @@ void_t Reflector::extractMethodDescriptions(const String& comment, ReflectorData
         p = end;
         while(String::isSpace(*p))
           ++p;
-        String description(p, line.length() - (p - (const tchar_t*)line));
+        String paramDescription(p, line.length() - (p - (const tchar_t*)line));
         for(List<ReflectorData::Type::Method::Parameter>::Iterator i =  method.parameters.begin(), end = method.parameters.end(); i != end; ++i)
         {
           ReflectorData::Type::Method::Parameter& parameter = *i;
           if(parameter.name == parameterName)
           {
-            parameter.description = description;
+            parameter.description = paramDescription;
+            description = &parameter.description;
             break;
           }
         }
         continue;
       }
     }
-    if(!description.isEmpty())
-      description.append(' ');
-    description.append(line);
+    if(!description->isEmpty())
+      description->append(' ');
+    description->append(line);
   }
 
 

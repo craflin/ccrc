@@ -115,8 +115,8 @@ public:
             parent = clang_getCursorSemanticParent(parent);
           }
           //Console::printf("%s (template)\n", (const tchar_t*)name);
-          HashMap<String, ParserData::TypeDecl>::Iterator it = parser.data.declarations.find(name);
-          ParserData::TypeDecl& typeDecl = it == parser.data.declarations.end() ? parser.data.declarations.append(name, {}) : *it;
+          HashMap<String, ParserData::TypeDecl>::Iterator it = parser.data.templates.find(name);
+          ParserData::TypeDecl& typeDecl = it == parser.data.templates.end() ? parser.data.templates.append(name, {}) : *it;
           typeDecl.name = name;
           typeDecl.type = ParserData::TypeDecl::classType;
           action = classAction;

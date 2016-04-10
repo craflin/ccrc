@@ -55,5 +55,6 @@ public:
 
 public:
   HashMap<String, TypeDecl> declarations;
+  HashMap<String, TypeDecl> templates;
   String headerFile;
 };

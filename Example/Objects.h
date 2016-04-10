@@ -1,5 +1,7 @@
 
 #include <Reflected.h>
+#include <nstd/List.h>
+
 
 class MyInterface1
 {
@@ -96,6 +98,12 @@ public:
   int func6(int p0);
 
   int func7();
+
+  /**
+   * @invokable
+   * Example template function
+   */
+  //List<String> func8();
 };
 
 class MyObject5 : public Reflected

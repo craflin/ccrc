@@ -103,7 +103,7 @@ public:
    * @invokable
    * Example template function
    */
-  //List<String> func8();
+  List<String> func8();
 };
 
 class MyObject5 : public Reflected

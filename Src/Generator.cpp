@@ -144,11 +144,17 @@ String Generator::getVarName(const String& type)
 {
   const tchar_t* start = type;
   const tchar_t* var = String::findLast(start, "::");
+  String result = type;
   if(var)
-    return type.substr(var + 2 - start);
-  if(type == "int")
-    return String("_") + type + "Type";
-  return type;
+    result = type.substr(var + 2 - start);
+  else
+  {
+    if(type == "int")
+      return String("_") + type + "Type";
+  }
+  result.replace("<", "__");
+  result.replace(">", "__");
+  return result;
 }
 
 String Generator::getFullVarName(const String& type)

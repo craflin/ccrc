@@ -25,7 +25,19 @@ void_t Reflector::addReferencedType(const String& name)
       return;
     }
 
-  //?? template type?
+  String templateName = getTemplateName(name);
+  if(!templateName.isEmpty())
+  {
+    HashMap<String, ParserData::TypeDecl>::Iterator it = parserData->templates.find(templateName);
+    if(it != parserData->templates.end())
+    {
+      ParserData::TypeDecl& type = additionalTypes.append();
+      type = *it;
+      type.name = name;
+      referencedTypes.append(name, &type);
+      return;
+    }
+  }
 }
 
 bool_t Reflector::reflect(const String& headerFile, const ParserData& parserData)
